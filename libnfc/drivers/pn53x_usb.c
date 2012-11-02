@@ -36,6 +36,7 @@ Thanks to d18c7db and Okko for example code
 #include <stdlib.h>
 #include <inttypes.h>
 #include <sys/select.h>
+#include <sys/types.h>
 #include <errno.h>
 
 #ifndef _WIN32
