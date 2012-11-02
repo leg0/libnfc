@@ -29,6 +29,12 @@ IF(NOT LIBUSB_FOUND)
     FIND_PATH(LIBUSB_INCLUDE_DIRS lusb0_usb.h "$ENV{ProgramFiles}/LibUSB-Win32/include" NO_SYSTEM_ENVIRONMENT_PATH)
     FIND_LIBRARY(LIBUSB_LIBRARIES NAMES libusb PATHS "$ENV{ProgramFiles}/LibUSB-Win32/lib/gcc")
     SET(LIBUSB_LIBRARY_DIR "$ENV{ProgramFiles}/LibUSB-Win32/bin/x86/")
+    # Look for libusb in dir indicated by LIBUSB environment variable.
+    IF(NOT(LIBUSB_INCLUDE_DIRS AND LIBUSB_LIBRARIES))
+      FIND_PATH(LIBUSB_INCLUDE_DIRS lusb0_usb.h "$ENV{LIBUSB}/include" NO_SYSTEM_ENVIRONMENT_PATH)
+      FIND_LIBRARY(LIBUSB_LIBRARIES NAMES libusb PATHS "$ENV{LIBUSB}/lib/gcc")
+      SET(LIBUSB_LIBRARY_DIR "$ENV{LIBUSB}/amd64/")
+    ENDIF(NOT(LIBUSB_INCLUDE_DIRS AND LIBUSB_LIBRARIES))
   ELSE(WIN32)
     # If not under Windows we use PkgConfig
     FIND_PACKAGE (PkgConfig)
