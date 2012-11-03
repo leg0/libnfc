@@ -28,7 +28,9 @@
 #ifndef _LIBNFC_H_
 #  define _LIBNFC_H_
 
+#if HAVE_SYS_TIME_H
 #  include <sys/time.h>
+#endif
 
 #  include <stdint.h>
 #  include <stdbool.h>

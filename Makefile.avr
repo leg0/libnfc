@@ -1,0 +1,42 @@
+CC=avr-gcc
+
+SRC= \
+	libnfc/buses/avr_spi.c \
+	libnfc/chips/pn53x.c \
+	libnfc/iso14443-subr.c \
+	libnfc/mirror-subr.c \
+	libnfc/nfc.c \
+	libnfc/nfc-device.c \
+	libnfc/nfc-emulation.c \
+	libnfc/nfc-internal.c \
+	libnfc/target-subr.c
+
+OBJ=$(SRC:.c=.o)
+
+#SPI_DEFINES =  -DSPI_PORT=B -DSPI_MOSI_PIN=3 -DSPI_MISO_PIN=4 -DSPI_SS_PIN=2 -DSPI_SCK_PIN=5
+
+# The following describes the SPI transfer mode
+# CPOL - clock polarity. If 0, then leading edge is rising, if 1 leading
+#        edge is falling.
+# CPHA - clock phase. If 0, then data is sampled on leading edge, if 1, then
+#        data is sampled on trailing edge.
+
+# PN532 samples data on leading edge, SCK is active high.
+SPI_DEFINES += -DSPI_CPOL=0 -DSPI_CPHA=0
+
+# SPI Clock divisors
+SPI_DEFINES += -DSPI_SPR1=0 -DSPI_SPR0=0 -DSPI_SPI2X=1
+
+# PN532 is LSB first.
+SPI_DEFINES += -DSPI_BITORDER=SPI_LSBFIRST
+#SPI_DEFINES += -DSPI_BITORDER=SPI_MSBFIRST
+
+all: libnfc.a
+
+
+libnfc.a: $(OBJ)
+	avr-ar rvs libnfc.a *.o
+
+%.o: %.c
+	avr-gcc -c -mmcu=atmega328p -std=c99 -DEXIT_FAILURE=1 $(SPI_DEFINES) -I./include -I. -I./libnfc $<
+

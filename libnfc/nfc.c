@@ -65,11 +65,11 @@
  * The functionnality documented below allow to retreive some information in text format.
  */
 
-#ifdef HAVE_CONFIG_H
 #  include "config.h"
-#endif // HAVE_CONFIG_H
 
+#if HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
