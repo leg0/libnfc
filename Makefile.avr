@@ -9,9 +9,14 @@ SRC= \
 	libnfc/nfc-device.c \
 	libnfc/nfc-emulation.c \
 	libnfc/nfc-internal.c \
-	libnfc/target-subr.c
+	libnfc/target-subr.c \
+	utils/nfc-avr-read-forum-tag3.c \
+    contrib/avr/getenv.c \
+    contrib/avr/err.c
 
 OBJ=$(SRC:.c=.o)
+
+MCU=-mmcu=atmega328p
 
 #SPI_DEFINES =  -DSPI_PORT=B -DSPI_MOSI_PIN=3 -DSPI_MISO_PIN=4 -DSPI_SS_PIN=2 -DSPI_SCK_PIN=5
 
@@ -31,12 +36,15 @@ SPI_DEFINES += -DSPI_SPR1=0 -DSPI_SPR0=0 -DSPI_SPI2X=1
 SPI_DEFINES += -DSPI_BITORDER=SPI_LSBFIRST
 #SPI_DEFINES += -DSPI_BITORDER=SPI_MSBFIRST
 
-all: libnfc.a
+all: libnfc.a nfc-read-forum-tag3.elf
 
 
 libnfc.a: $(OBJ)
 	avr-ar rvs libnfc.a *.o
 
 %.o: %.c
-	avr-gcc -c -mmcu=atmega328p -std=c99 -DEXIT_FAILURE=1 $(SPI_DEFINES) -I./include -I. -I./libnfc $<
+	avr-gcc -c $(MCU) -std=c99 -DEXIT_FAILURE=1 -DEXIT_SUCCESS=1 $(SPI_DEFINES) -I./include -I. -I./libnfc -I./contrib/avr $<
+
+nfc-read-forum-tag3.elf: libnfc.a
+	avr-gcc -L. -lnfc $(MCU) -o $@
 
