@@ -2938,7 +2938,7 @@ pn53x_get_information_about(nfc_device *pnd, char **pbuf)
   }
   buflen -= res;
 
-  if ((res = snprintf(buf, buflen, "initator mode modulations: ")) < 0) {
+  if ((res = snprintf(buf, buflen, "initator mode modulations: ", 0)) < 0) {
     return NFC_ESOFT;
   }
   buf += res;
@@ -2975,7 +2975,7 @@ pn53x_get_information_about(nfc_device *pnd, char **pbuf)
       }
       buflen -= res;
     }
-    if ((res = snprintf(buf, buflen, ")")) < 0) {
+    if ((res = snprintf(buf, buflen, ")", 0)) < 0) {
       return NFC_ESOFT;
     }
     buf += res;
@@ -2985,7 +2985,7 @@ pn53x_get_information_about(nfc_device *pnd, char **pbuf)
     buflen -= res;
 
   }
-  if ((res = snprintf(buf, buflen, "\n")) < 0) {
+  if ((res = snprintf(buf, buflen, "\n", 0)) < 0) {
     return NFC_ESOFT;
   }
   buf += res;
@@ -2993,7 +2993,7 @@ pn53x_get_information_about(nfc_device *pnd, char **pbuf)
     return NFC_EOVFLOW;
   }
   buflen -= res;
-  if ((res = snprintf(buf, buflen, "target mode modulations: ")) < 0) {
+  if ((res = snprintf(buf, buflen, "target mode modulations: ", 0)) < 0) {
     return NFC_ESOFT;
   }
   buf += res;
@@ -3029,7 +3029,7 @@ pn53x_get_information_about(nfc_device *pnd, char **pbuf)
       }
       buflen -= res;
     }
-    if ((res = snprintf(buf, buflen, ")")) < 0) {
+    if ((res = snprintf(buf, buflen, ")", 0)) < 0) {
       return NFC_ESOFT;
     }
     buf += res;
@@ -3039,7 +3039,7 @@ pn53x_get_information_about(nfc_device *pnd, char **pbuf)
     buflen -= res;
 
   }
-  if ((res = snprintf(buf, buflen, "\n")) < 0) {
+  if ((res = snprintf(buf, buflen, "\n", 0)) < 0) {
     return NFC_ESOFT;
   }
   buf += res;
