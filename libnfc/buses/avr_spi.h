@@ -35,13 +35,13 @@ typedef struct avr_spi avr_spi;
 typedef avr_spi* avr_spi_handle;
 
 avr_spi_handle avr_spi_open(const char *pcPortName);
-void    avr_spi_close(avr_spi_handle h);
-void    avr_spi_flush_input(avr_spi_handle h);
+void avr_spi_close(avr_spi_handle h);
+void avr_spi_flush_input(avr_spi_handle h);
 
-void    avr_spi_set_speed(avr_spi_handle h, uint32_t uiPortSpeed);
+void avr_spi_set_speed(avr_spi_handle h, uint32_t uiPortSpeed);
 uint32_t avr_spi_get_speed(avr_spi_handle h);
 
-int     avr_spi_receive(avr_spi_handle h, uint8_t *pbtRx, size_t szRx, void *abort_p, int timeout);
-int     avr_spi_send(avr_spi_handle h, const uint8_t *pbtTx, size_t szTx, int timeout);
+int avr_spi_receive(avr_spi_handle h, uint8_t *pbtRx, size_t szRx, void *abort_p, int timeout);
+int avr_spi_send(avr_spi_handle h, const uint8_t *pbtTx, size_t szTx, int timeout);
 
 char** avr_spi_list_ports(void);

@@ -65,7 +65,9 @@
  * The functionnality documented below allow to retreive some information in text format.
  */
 
+#if HAVE_CONFIG_H
 #  include "config.h"
+#endif
 
 #if HAVE_FCNTL_H
 #include <fcntl.h>
@@ -102,6 +104,9 @@ const struct nfc_driver *nfc_drivers[] = {
 #  if defined (DRIVER_ARYGON_ENABLED)
   &arygon_driver,
 #  endif /* DRIVER_ARYGON_ENABLED */
+#  if defined(DRIVER_PN53X_AVR_SPI_ENABLED)
+  &pn53x_avr_spi_driver,
+#  endif
   NULL
 };
 

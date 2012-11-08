@@ -27,9 +27,7 @@
 #define __NFC_INTERNAL_H__
 
 #include <stdbool.h>
-#if HAVE_ERR_H
 #include <err.h>
-#endif
 #if HAVE_SYS_TIME_H
 #  include <sys/time.h>
 #endif

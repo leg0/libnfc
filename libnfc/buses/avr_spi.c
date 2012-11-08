@@ -1,16 +1,40 @@
+#include "avr_spi.h"
+
+#include <nfc/nfc.h>
+
 #include <avr/io.h>
 #include <inttypes.h>
 #include <assert.h>
-
-#include "avr_spi.h"
-
 
 // Valid values for SPI_BITORDER
 #define SPI_LSBFIRST 1
 #define SPI_MSBFIRST 0
 
+#ifndef SPI_CPOL
+#  define SPI_CPOL 0
+#endif
 
-#if (defined(__AVR_AT90USB82__) || defined(__AVR_AT90USB162__))
+#ifndef SPI_CPHA
+#  define SPI_CPHA 0
+#endif
+
+#ifndef SPI_SPR1
+#  define SPI_SPR1 0
+#endif
+
+#ifndef SPI_SPR0
+#  define SPI_SPR0 0
+#endif
+
+#ifndef SPI_SPI2X
+#  define SPI_SPI2X 1
+#endif
+
+#ifndef SPI_BITORDER
+#  define SPI_BITORDER SPI_LSBFIRST
+#endif
+
+#if (defined(__AVR_AT90USB82__) || defined(__AVR_AT90USB162__) || defined(__AVR_ATmega2560__))
 #  define SPI_DDRx     DDRB
 #  define SPI_SS_PIN   PORTB0
 #  define SPI_SCK_PIN  PORTB1
@@ -23,7 +47,8 @@
 #  define SPI_MOSI_PIN PORTB3
 #  define SPI_MISO_PIN PORTB4
 #else
-#  error unknown processor - add to spi.h
+    // This is either not an AVR, or is an avr that is not yet supported.
+#  error Unknown processor or not an AVR.
 #endif
 
 
@@ -58,13 +83,6 @@ static uint8_t avr_spi_transceive_byte(uint8_t out)
     return SPDR;
 }
 
-static uint8_t avr_spi_last_received(uint8_t data)
-{
-    SPDR = data;
-    return SPDR;
-}
-
-
 typedef struct avr_spi
 {
 	int isOpen;
@@ -83,7 +101,7 @@ avr_spi_handle avr_spi_open(const char * pcPortName)
 	return &port;
 }
 
-void    avr_spi_close(avr_spi_handle h)
+void avr_spi_close(avr_spi_handle h)
 {
 	assert(h == &port);
 	assert(port.isOpen);
@@ -93,13 +111,13 @@ void    avr_spi_close(avr_spi_handle h)
 	port.isOpen = 0;
 }
 
-void    avr_spi_flush_input(avr_spi_handle h)
+void avr_spi_flush_input(avr_spi_handle h)
 {
 	assert(h == &port);
 	assert(port.isOpen);
 }
 
-void    avr_spi_set_speed(avr_spi_handle h, const uint32_t uiPortSpeed)
+void avr_spi_set_speed(avr_spi_handle h, const uint32_t uiPortSpeed)
 {
 	assert(h == &port);
 	assert(port.isOpen);
@@ -112,7 +130,7 @@ uint32_t avr_spi_get_speed(avr_spi_handle h)
 	return ~0;
 }
 
-int     avr_spi_receive(avr_spi_handle h, uint8_t* pbtRx, const size_t szRx, void* abort_p, int timeout)
+int avr_spi_receive(avr_spi_handle h, uint8_t* pbtRx, const size_t szRx, void* abort_p, int timeout)
 {
 	assert(h == &port);
 	assert(port.isOpen);
@@ -121,9 +139,11 @@ int     avr_spi_receive(avr_spi_handle h, uint8_t* pbtRx, const size_t szRx, voi
 	{
 		pbtRx[i] = avr_spi_transceive_byte(0xff);
 	}
+
+    return NFC_SUCCESS;
 }
 
-int     avr_spi_send(avr_spi_handle h, const uint8_t* pbtTx, const size_t szTx, int timeout)
+int avr_spi_send(avr_spi_handle h, const uint8_t* pbtTx, const size_t szTx, int timeout)
 {
 	assert(h == &port);
 	assert(port.isOpen);
@@ -132,6 +152,8 @@ int     avr_spi_send(avr_spi_handle h, const uint8_t* pbtTx, const size_t szTx, 
 	{
 		avr_spi_transceive_byte(pbtTx[i]);
 	}
+
+    return NFC_SUCCESS;
 }
 
 char** avr_spi_list_ports(void)
