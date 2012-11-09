@@ -1095,6 +1095,7 @@ nfc_device_get_information_about(nfc_device *pnd, char **buf)
   HAL(device_get_information_about, pnd, buf);
 }
 
+#if !defined(__AVR__)
 /** @ingroup string-converter
  * @brief Convert \a nfc_baud_rate value to string
  * @return Returns nfc baud rate
@@ -1178,3 +1179,5 @@ str_nfc_target(char **buf, const nfc_target nt, bool verbose)
   sprint_nfc_target(*buf, nt, verbose);
   return strlen(*buf);
 }
+
+#endif

@@ -136,6 +136,8 @@ static void hang(int n)
 	}
 }
 
+static int xxx = 123;
+
 int
 main()
 {
@@ -147,7 +149,7 @@ main()
 
   nfc_init(NULL);
 
-  pnd = nfc_open(NULL, NULL);
+  pnd = nfc_open(NULL, "pn53x_avr_spi");
 
   if (pnd == NULL) {
     ERR("Unable to open NFC device");

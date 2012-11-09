@@ -24,6 +24,9 @@
  * @brief Driver for PN53x devices / SPI bus.
  */
 
+#if !defined(DRIVER_PN53X_AVR_SPI_ENABLED)
+#  error "You need to define DRIVER_PN53X_AVR_SPI_ENABLED in order to compile this file!"
+#endif
 
 #include <nfc/nfc-types.h>
 

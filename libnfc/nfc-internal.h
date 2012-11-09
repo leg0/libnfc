@@ -151,7 +151,9 @@ struct nfc_driver {
   int (*idle)(struct nfc_device *pnd);
 };
 
+#if !defined(DEVICE_NAME_LENGTH)
 #  define DEVICE_NAME_LENGTH  256
+#endif
 #  define DEVICE_PORT_LENGTH  64
 
 /**

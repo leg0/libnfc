@@ -2924,6 +2924,9 @@ pn53x_get_supported_baud_rate(nfc_device *pnd, const nfc_modulation_type nmt, co
 int
 pn53x_get_information_about(nfc_device *pnd, char **pbuf)
 {
+#if defined(__AVR__)
+    return NFC_EOVFLOW;
+#else
   size_t buflen = 2048;
   *pbuf = malloc(buflen);
   char *buf = *pbuf;
@@ -3049,6 +3052,7 @@ pn53x_get_information_about(nfc_device *pnd, char **pbuf)
   buflen -= res;
 
   return NFC_SUCCESS;
+#endif
 }
 
 void

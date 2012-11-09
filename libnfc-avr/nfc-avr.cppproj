@@ -23,6 +23,7 @@
     <OverrideVtorValue />
     <eraseonlaunchrule>0</eraseonlaunchrule>
     <AsfVersion>3.1.3</AsfVersion>
+    <avrtool />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>
@@ -56,13 +57,13 @@
   <avrgcc.common.outputfiles.hex>True</avrgcc.common.outputfiles.hex>
   <avrgcc.common.outputfiles.lss>True</avrgcc.common.outputfiles.lss>
   <avrgcc.common.outputfiles.eep>True</avrgcc.common.outputfiles.eep>
-  <avrgcc.compiler.general.ChangeDefaultCharTypeUnsigned>True</avrgcc.compiler.general.ChangeDefaultCharTypeUnsigned>
-  <avrgcc.compiler.general.ChangeDefaultBitFieldUnsigned>True</avrgcc.compiler.general.ChangeDefaultBitFieldUnsigned>
   <avrgcc.compiler.symbols.DefSymbols>
     <ListValues>
       <Value>LIBNFC_STATIC</Value>
       <Value>PACKAGE_VERSION=\"bla\"</Value>
-      <Value>DRIVER_PN532_AVR_SPI_ENABLED</Value>
+      <Value>DRIVER_PN53X_AVR_SPI_ENABLED</Value>
+      <Value>LIBNFC_MAX_CONNSTRING_LENGTH=64</Value>
+      <Value>DEVICE_NAME_LENGTH=64</Value>
     </ListValues>
   </avrgcc.compiler.symbols.DefSymbols>
   <avrgcc.compiler.directories.IncludePaths>
@@ -75,11 +76,11 @@
       <Value>../../contrib/avr</Value>
     </ListValues>
   </avrgcc.compiler.directories.IncludePaths>
-  <avrgcc.compiler.optimization.level>Optimize (-O1)</avrgcc.compiler.optimization.level>
   <avrgcc.compiler.optimization.PackStructureMembers>True</avrgcc.compiler.optimization.PackStructureMembers>
   <avrgcc.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcc.compiler.optimization.AllocateBytesNeededForEnum>
-  <avrgcc.compiler.optimization.DebugLevel>Default (-g2)</avrgcc.compiler.optimization.DebugLevel>
+  <avrgcc.compiler.optimization.DebugLevel>Maximum (-g3)</avrgcc.compiler.optimization.DebugLevel>
   <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
+  <avrgcc.compiler.warnings.Pedantic>True</avrgcc.compiler.warnings.Pedantic>
   <avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>
   <avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>
   <avrgcccpp.compiler.symbols.DefSymbols>
@@ -177,10 +178,10 @@
       <SubType>compile</SubType>
       <Link>nfc-device.c</Link>
     </Compile>
-    <Compile Include="..\libnfc\nfc-emulation.c">
+    <None Include="..\libnfc\nfc-emulation.c">
       <SubType>compile</SubType>
       <Link>nfc-emulation.c</Link>
-    </Compile>
+    </None>
     <Compile Include="..\libnfc\nfc-internal.c">
       <SubType>compile</SubType>
       <Link>nfc-internal.c</Link>
@@ -193,10 +194,10 @@
       <SubType>compile</SubType>
       <Link>nfc.c</Link>
     </Compile>
-    <Compile Include="..\libnfc\target-subr.c">
+    <None Include="..\libnfc\target-subr.c">
       <SubType>compile</SubType>
       <Link>target-subr.c</Link>
-    </Compile>
+    </None>
     <Compile Include="..\libnfc\target-subr.h">
       <SubType>compile</SubType>
       <Link>target-subr.h</Link>

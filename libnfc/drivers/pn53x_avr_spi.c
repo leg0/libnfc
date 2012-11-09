@@ -41,6 +41,10 @@
 #include "drivers/pn53x_avr_spi.h"
 #include "buses/avr_spi.h"
 
+#if !defined(DRIVER_PN53X_AVR_SPI_ENABLED)
+#  error "You need to define DRIVER_PN53X_AVR_SPI_ENABLED in order to compile this file!"
+#endif
+
 #define PN53X_AVR_SPI_DRIVER_NAME "pn53x_avr_spi"
 #define LOG_CATEGORY "libnfc.driver.pn53x_avr_spi"
 
@@ -56,7 +60,7 @@ static int pn53x_avr_spi_ack(nfc_device *pnd);
 static size_t
 pn53x_avr_spi_scan(nfc_connstring connstrings[], const size_t connstrings_len)
 {
-    strcpy(connstrings[0], "avrspi0");
+    strcpy(connstrings[0], PN53X_AVR_SPI_DRIVER_NAME);
     return 1;
 }
 
@@ -66,7 +70,7 @@ pn53x_avr_spi_scan(nfc_connstring connstrings[], const size_t connstrings_len)
 static nfc_device *
 pn53x_avr_spi_open(const nfc_connstring connstring)
 {
-    if (strcmp(connstring, "avrspi0") != 0)
+    if (strcmp(connstring, PN53X_AVR_SPI_DRIVER_NAME) != 0)
     {
         // can't open if it's not avrspi0.
         return NULL;
@@ -86,8 +90,8 @@ pn53x_avr_spi_open(const nfc_connstring connstring)
     pnd->driver = &pn53x_avr_spi_driver;
     pnd->driver_data = hSpi;
     pnd->chip_data = NULL; // ??
-    strncpy(pnd->name, "avrspi0", sizeof(pnd->name));
-    strncpy(pnd->connstring, "avrspi0", sizeof(pnd->connstring));
+    strncpy(pnd->name, PN53X_AVR_SPI_DRIVER_NAME, sizeof(pnd->name));
+    strncpy(pnd->connstring, PN53X_AVR_SPI_DRIVER_NAME, sizeof(pnd->connstring));
     pnd->bCrc = true; // ?? don't know that
     pnd->bPar = true; // ?? don't know that
     pnd->bEasyFraming = false; // ?? don't know that
@@ -168,18 +172,18 @@ const struct nfc_driver pn53x_avr_spi_driver = {
     .initiator_transceive_bits_timed  = pn53x_initiator_transceive_bits_timed,
     .initiator_target_is_present      = pn53x_initiator_target_is_present,
 
-    .target_init           = pn53x_target_init,
-    .target_send_bytes     = pn53x_target_send_bytes,
-    .target_receive_bytes  = pn53x_target_receive_bytes,
-    .target_send_bits      = pn53x_target_send_bits,
-    .target_receive_bits   = pn53x_target_receive_bits,
+    .target_init                      = pn53x_target_init,
+    .target_send_bytes                = pn53x_target_send_bytes,
+    .target_receive_bytes             = pn53x_target_receive_bytes,
+    .target_send_bits                 = pn53x_target_send_bits,
+    .target_receive_bits              = pn53x_target_receive_bits,
 
-    .device_set_property_bool     = pn53x_set_property_bool,
-    .device_set_property_int      = pn53x_set_property_int,
-    .get_supported_modulation     = pn53x_get_supported_modulation,
-    .get_supported_baud_rate      = pn53x_get_supported_baud_rate,
-    .device_get_information_about = pn53x_get_information_about,
+    .device_set_property_bool         = pn53x_set_property_bool,
+    .device_set_property_int          = pn53x_set_property_int,
+    .get_supported_modulation         = pn53x_get_supported_modulation,
+    .get_supported_baud_rate          = pn53x_get_supported_baud_rate,
+    .device_get_information_about     = pn53x_get_information_about,
 
-    .abort_command  = pn53x_avr_spi_abort_command,
-    .idle  = pn53x_idle
+    .abort_command                    = pn53x_avr_spi_abort_command,
+    .idle                             = pn53x_idle
 };
