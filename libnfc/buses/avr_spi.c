@@ -97,6 +97,7 @@ avr_spi_handle avr_spi_open(const char * pcPortName)
 {
 	if (port.isOpen) return NULL;
 
+	port.isOpen = 1;
 	avr_spi_setup();
 	return &port;
 }
