@@ -49,6 +49,7 @@
 #define LOG_CATEGORY "libnfc.driver.pn53x_avr_spi"
 
 static int pn53x_avr_spi_ack(nfc_device *pnd);
+static const struct pn53x_io pn53x_avr_spi_io;
 
 /**
  * @brief List opened devices
@@ -72,7 +73,7 @@ pn53x_avr_spi_open(const nfc_connstring connstring)
 {
     if (strcmp(connstring, PN53X_AVR_SPI_DRIVER_NAME) != 0)
     {
-        // can't open if it's not avrspi0.
+        // can't open if it's not PN53X_AVR_SPI_DRIVER_NAME.
         return NULL;
     }
 
@@ -80,7 +81,7 @@ pn53x_avr_spi_open(const nfc_connstring connstring)
     // Add support for multiple devices if there is need for it.
     static nfc_device the_avr_spi_device;
 
-    avr_spi_handle hSpi = avr_spi_open(connstring);
+    const avr_spi_handle hSpi = avr_spi_open(connstring);
     if (hSpi == NULL)
     {
         return NULL;
@@ -89,7 +90,7 @@ pn53x_avr_spi_open(const nfc_connstring connstring)
     nfc_device* pnd = &the_avr_spi_device;
     pnd->driver = &pn53x_avr_spi_driver;
     pnd->driver_data = hSpi;
-    pnd->chip_data = NULL; // ??
+    pn53x_data_new(pnd, &pn53x_avr_spi_io);
     strncpy(pnd->name, PN53X_AVR_SPI_DRIVER_NAME, sizeof(pnd->name));
     strncpy(pnd->connstring, PN53X_AVR_SPI_DRIVER_NAME, sizeof(pnd->connstring));
     pnd->bCrc = true; // ?? don't know that
@@ -111,6 +112,7 @@ pn53x_avr_spi_close(nfc_device *pnd)
     assert(pnd != NULL);
 
     avr_spi_close(pnd->driver_data);
+    pn53x_data_free(pnd);
     pnd->driver_data = NULL;
     pnd->driver = NULL;
 }
@@ -148,7 +150,7 @@ pn53x_avr_spi_abort_command(nfc_device *pnd)
     return NFC_SUCCESS;
 }
 
-const struct pn53x_io pn53x_avr_spi_io = {
+static const struct pn53x_io pn53x_avr_spi_io = {
     .send       = pn53x_avr_spi_send,
     .receive    = pn53x_avr_spi_receive
 };
