@@ -123,7 +123,37 @@ static int
 pn53x_avr_spi_send(nfc_device *pnd, const uint8_t *pbtData, const size_t szData, const int timeout)
 {
     assert(pnd != NULL);
-    return avr_spi_send(pnd->driver_data, pbtData, szData, timeout);
+    assert(pbtData != NULL);
+    assert(szData < 256);
+
+    uint8_t const PN532_PREAMBLE = 0x00;
+    uint8_t const PN532_STARTCODE1 = 0x00;
+    uint8_t const PN532_STARTCODE2 = 0xFF;
+    uint8_t const PN532_POSTAMBLE = 0x00;
+    
+    uint8_t const len = szData + 1; // Length of data and TFI.
+    uint8_t const lcs = ~len + 1;
+    assert(((len + lcs) & 0xFF) == 0);
+    
+    uint8_t const tfi = 0xD4; // Host-to-PN
+    uint8_t const buf1[] = {PN532_PREAMBLE, PN532_STARTCODE1, PN532_STARTCODE2, len, lcs, tfi};
+
+    uint8_t dcs = tfi;
+    for (uint8_t i = 0; i < szData; ++i)
+    {
+        dcs += pbtData[i];
+    }
+    dcs = ~dcs + 1;
+    uint8_t const buf2[] = { dcs, PN532_POSTAMBLE };
+    
+    void* const dd = pnd->driver_data;
+    int err;
+    avr_spi_begin_transaction(dd);
+    if (NFC_SUCCESS != (err = avr_spi_send(dd, buf1, sizeof(buf1), timeout))) return err;
+    if (NFC_SUCCESS != (err = avr_spi_send(dd, pbtData, szData, timeout)))    return err;
+    if (NFC_SUCCESS != (err = avr_spi_send(dd, buf2, sizeof(buf2), timeout))) return err;
+    avr_spi_end_transaction(dd);
+    return NFC_SUCCESS;
 }
 
 #define AVR_SPI_TIMEOUT_PER_PASS 200
@@ -133,14 +163,20 @@ pn53x_avr_spi_receive(nfc_device *pnd, uint8_t *pbtData, const size_t szDataLen,
     assert(pnd != NULL);
     assert(pbtData != NULL);
 
-    return avr_spi_receive(pnd->driver_data, pbtData, szDataLen, NULL, timeout);
+    avr_spi_begin_transaction(pnd->driver_data);
+    const int res = avr_spi_receive(DRIVER_DATA(pnd), pbtData, szDataLen, NULL, timeout);
+    avr_spi_end_transaction(pnd->driver_data);
+    
+    return res;
 }
 
 static int
 pn53x_avr_spi_ack(nfc_device *pnd)
 {
-    // TODO: send ACK frame
-	return 0;
+    avr_spi_begin_transaction(pnd->driver_data);
+    const int res = avr_spi_send(DRIVER_DATA(pnd), pn53x_ack_frame, sizeof(pn53x_ack_frame), 1000);
+    avr_spi_end_transaction(pnd->driver_data);
+    return res;
 }
 
 static int
