@@ -117,6 +117,215 @@ pn53x_avr_spi_close(nfc_device *pnd)
     pnd->driver = NULL;
 }
 
+static uint8_t
+pn53x_read_status(nfc_device* pnd)
+{
+    assert(pnd != NULL);
+    
+    const uint8_t PN532_SPI_STATREAD = 0x02;
+    return avr_spi_transceive_byte(pnd->driver_data, PN532_SPI_STATREAD);
+}
+
+static uint8_t
+pn53x_read_byte(nfc_device* pnd)
+{
+    assert(pnd != NULL);
+    
+    const uint8_t PN532_SPI_DATAREAD = 0x03;
+    return avr_spi_transceive_byte(pnd->driver_data, PN532_SPI_DATAREAD);
+}
+        
+static bool
+pn53x_avr_spi_wait_ready(nfc_device* pnd, const int timeout)
+{
+    const uint8_t PN532_SPI_READY = 0x01;
+    
+    uint16_t timer = 0;
+    // Wait for chip to say its ready!
+    while (pn53x_read_status(pnd) != PN532_SPI_READY)
+    {
+        if (timeout != 0)
+        {
+            timer += 10;
+            if (timer > timeout)
+            {
+                return false;
+            }
+        }
+        //delay(10);
+    }
+
+    return true;
+}    
+
+/// This is a type for return values of the functions in this class. Just plain success/fail is
+/// not enough - we need a reason of failure.
+typedef enum ReturnValue
+{
+    Success,
+    S_AckFrame,
+    S_NackFrame,
+    E_Fail,
+    E_InsufficientBuffer,
+    E_MultipleTags,
+    E_DataChecksum,
+    E_LengthChecksum,
+    E_ApplicationError,
+    E_ErrorFrame,
+} ReturnValue;
+
+static ReturnValue read_data(nfc_device* pnd, uint8_t* const rxBuffer, const uint8_t szRx)
+{
+    assert(pnd != NULL);
+    assert(rxBuffer != NULL);
+    
+    // 00 00 FF <LEN> <LCS> D5 <CC+1> <optional output data> <DCS> 00
+    typedef enum ReadState {
+        ReadingPreamble,
+        ReadingStartCode1,
+        ReadingStartCode2,
+        ReadingLength,
+        ReadingLcs,
+        ReadingTfi,
+        ReadingOutputData,
+        ReadingDcs,
+        ReadingPostamble,
+        Done
+    } ReadState;
+
+    ReadState state = ReadingPreamble;
+    uint8_t length = 0;
+    uint8_t* p = rxBuffer;
+    uint8_t* end = rxBuffer + szRx;
+    uint8_t dcs = 0xd5;
+    while (state != Done)
+    {
+        if (p > end)
+        {
+            //Debug::println("\nError: Insufficient buffer");
+            //Debug::print("state="); Debug::println(uint8_t(state));
+            return E_InsufficientBuffer;
+        }
+        uint8_t const b = *(p++) = pn53x_read_byte(pnd);
+        //Debug::print(b / 16, HEX); Debug::print(b%16, HEX); Debug::print(" ");
+
+        switch (state)
+        {
+        case Done:
+            // Reading should have ended by now!
+            assert(false);
+            break;
+            
+        case ReadingPreamble:
+            if (b == 0x00)
+                state = ReadingStartCode1;
+            break;
+        case ReadingStartCode1:
+            if (b == 0x00)
+            {
+                state = ReadingStartCode2;
+            }
+            else
+            {
+                p = rxBuffer;
+                //Debug::println();
+            }
+            break;
+        case ReadingStartCode2:
+            if (b == 0xff)
+            {
+                state = ReadingLength;
+            }
+            else if (b == 0x00)
+            {
+                state = ReadingStartCode2;
+                p = rxBuffer+1;
+            }
+            else
+            {
+                state = ReadingStartCode1;
+                p = rxBuffer;
+                //Debug::println();
+            }
+            break;
+        case ReadingLength:
+                length = b;
+                state = ReadingLcs;
+                break;
+        case ReadingLcs:
+            if (b == 0xff && length == 0)
+            {
+                *(p++) = pn53x_read_byte(pnd);
+                return S_AckFrame;
+            }
+            else if (b == 0 && length == 0xff)
+            {
+                *(p++) = pn53x_read_byte(pnd);
+                return S_NackFrame;
+            }
+            else if ((uint8_t)(b+length) != 0)
+            {
+                //Debug::println("Error: length checksum mismatch");
+                return E_LengthChecksum;
+            }
+            else
+            {
+                state = ReadingTfi;
+            }
+            break;
+        case ReadingTfi:
+            if (b != 0xD5/*Tfi_Pn5xxToHost*/)
+                return E_ErrorFrame;
+            else
+            {
+                state = ReadingOutputData;
+                --length; // TFI is included in length
+            }
+            break;
+        case ReadingOutputData:
+            if (length > 0)
+            {
+                dcs += b;
+                --length;
+                break;
+            }
+            else
+            {
+                state = ReadingDcs;
+            }
+            // no break
+        case ReadingDcs:
+            if ((uint8_t)(dcs + b) != 0)
+            {
+                //Debug::println("Error: data checksum error");
+                return E_DataChecksum;
+            }
+            else
+            {
+                state = ReadingPostamble;
+            }
+            break;
+        case ReadingPostamble:
+            /*if (b != 0)
+            {
+                Debug::println("Error: Invalid postamble");
+                return E_InvalidPostamble;
+            }*/
+            state = Done;
+            break;
+        }
+    }
+
+    //Debug::println();
+    return Success;
+}
+    
+static bool pn53x_avr_spi_wait_ack(nfc_device* pnd, const int timeout)
+{
+    uint8_t ackBuffer[7];
+    return S_AckFrame == read_data(pnd, ackBuffer, sizeof(ackBuffer));
+}
+    
 #define PN53X_AVR_SPI_BUFFER_LEN (PN53x_EXTENDED_FRAME__DATA_MAX_LEN + PN53x_EXTENDED_FRAME__OVERHEAD)
 
 static int
@@ -125,6 +334,8 @@ pn53x_avr_spi_send(nfc_device *pnd, const uint8_t *pbtData, const size_t szData,
     assert(pnd != NULL);
     assert(pbtData != NULL);
     assert(szData < 256);
+
+    uint8_t const PN532_SPI_DATAWRITE = 0x01;
 
     uint8_t const PN532_PREAMBLE = 0x00;
     uint8_t const PN532_STARTCODE1 = 0x00;
@@ -146,14 +357,21 @@ pn53x_avr_spi_send(nfc_device *pnd, const uint8_t *pbtData, const size_t szData,
     dcs = ~dcs + 1;
     uint8_t const buf2[] = { dcs, PN532_POSTAMBLE };
     
-    void* const dd = pnd->driver_data;
-    int err;
-    avr_spi_begin_transaction(dd);
-    if (NFC_SUCCESS != (err = avr_spi_send(dd, buf1, sizeof(buf1), timeout))) return err;
-    if (NFC_SUCCESS != (err = avr_spi_send(dd, pbtData, szData, timeout)))    return err;
-    if (NFC_SUCCESS != (err = avr_spi_send(dd, buf2, sizeof(buf2), timeout))) return err;
-    avr_spi_end_transaction(dd);
-    return NFC_SUCCESS;
+    void* const driver_data = pnd->driver_data;
+    avr_spi_begin_transaction(driver_data);
+        avr_spi_transceive_byte(driver_data, PN532_SPI_DATAWRITE);
+        int res = avr_spi_send(driver_data, buf1, sizeof(buf1), timeout);
+        if (res == NFC_SUCCESS)
+            res = avr_spi_send(driver_data, pbtData, szData,    timeout);
+        if (res == NFC_SUCCESS)
+            res = avr_spi_send(driver_data, buf2, sizeof(buf2), timeout);
+        
+        pn53x_avr_spi_wait_ready(driver_data, timeout);
+        pn53x_avr_spi_wait_ack(driver_data, timeout);
+        pn53x_avr_spi_wait_ready(driver_data, timeout);
+    avr_spi_end_transaction(driver_data);
+    
+    return res;
 }
 
 #define AVR_SPI_TIMEOUT_PER_PASS 200
@@ -164,7 +382,7 @@ pn53x_avr_spi_receive(nfc_device *pnd, uint8_t *pbtData, const size_t szDataLen,
     assert(pbtData != NULL);
 
     avr_spi_begin_transaction(pnd->driver_data);
-    const int res = avr_spi_receive(DRIVER_DATA(pnd), pbtData, szDataLen, NULL, timeout);
+    const int res = avr_spi_receive(pnd->driver_data, pbtData, szDataLen, NULL, timeout);
     avr_spi_end_transaction(pnd->driver_data);
     
     return res;
@@ -174,7 +392,7 @@ static int
 pn53x_avr_spi_ack(nfc_device *pnd)
 {
     avr_spi_begin_transaction(pnd->driver_data);
-    const int res = avr_spi_send(DRIVER_DATA(pnd), pn53x_ack_frame, sizeof(pn53x_ack_frame), 1000);
+    const int res = avr_spi_send(pnd->driver_data, pn53x_ack_frame, sizeof(pn53x_ack_frame), 1000);
     avr_spi_end_transaction(pnd->driver_data);
     return res;
 }
