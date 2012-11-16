@@ -48,7 +48,51 @@
 #define PN53X_AVR_SPI_DRIVER_NAME "pn53x_avr_spi"
 #define LOG_CATEGORY "libnfc.driver.pn53x_avr_spi"
 
-static int pn53x_avr_spi_ack(nfc_device *pnd);
+//
+// Begin P70_IRQ 
+//
+
+// P70_IRQ is triggered by the PN53x when it has data avilable for the
+// host.
+
+#if defined(__AVR_ATmega328P__) // Arduino Uno Rev3
+#  define PN532_P70_IRQ_PORT PORTD
+#  define PN532_P70_IRQ_PIN  PORTD2
+#  define PN532_P70_IRQ_VECT INT0_vect
+#  define PN532_P70_IRQ_INT  INT0
+#  define PN532_P70_IRQ_MSK  EIMSK
+#elif defined(__AVR_ATmega2560__) // Arduino Mega 2560
+#  define PN532_P70_IRQ_PORT PORTE
+#  define PN532_P70_IRQ_PIN  PORTE4
+#  define PN532_P70_IRQ_VECT INT4_vect
+#  define PN532_P70_IRQ_INT  INT4
+#  define PN532_P70_IRQ_MSK  EIMSK
+#else
+#  error "Don't know where the P70_IRQ is connected to"
+#endif
+
+#include <avr/interrupt.h>
+#include <avr/io.h>
+
+volatile bool p70_irq = false;
+ISR(PN532_P70_IRQ_VECT)
+{
+    p70_irq = true;
+}
+
+static void wait_p70_irq(int timeout)
+{
+    while (!p70_irq)
+    { }
+        
+    p70_irq = false;
+}    
+
+//
+// End P70_IRQ
+//
+
+static int pn53x_avr_spi_handshake(nfc_device *pnd);
 static const struct pn53x_io pn53x_avr_spi_io;
 
 /**
@@ -87,6 +131,10 @@ pn53x_avr_spi_open(const nfc_connstring connstring)
         return NULL;
     }
 
+    // Set up the P70_IRQ handling.
+    PN532_P70_IRQ_MSK |= (1 << PN532_P70_IRQ_INT);
+    sei();
+                    
     nfc_device* pnd = &the_avr_spi_device;
     pnd->driver = &pn53x_avr_spi_driver;
     pnd->driver_data = hSpi;
@@ -100,8 +148,7 @@ pn53x_avr_spi_open(const nfc_connstring connstring)
     pnd->btSupportByte = 0;
     pnd->last_error = 0;
 
-    // HACK1: Send first an ACK as Abort command, to reset chip before talking to it:
-    pn53x_avr_spi_ack(pnd);
+    pn53x_avr_spi_handshake(pnd);
 
     return pnd;
 }
@@ -389,11 +436,52 @@ pn53x_avr_spi_receive(nfc_device *pnd, uint8_t *pbtData, const size_t szDataLen,
 }
 
 static int
-pn53x_avr_spi_ack(nfc_device *pnd)
+pn53x_avr_spi_handshake(nfc_device *pnd)
 {
+    assert(pnd != NULL);
+    assert(pnd->driver_data != NULL);
+    
+    printf("%s(%d)\n", __FILE__, __LINE__);
     avr_spi_begin_transaction(pnd->driver_data);
-    const int res = avr_spi_send(pnd->driver_data, pn53x_ack_frame, sizeof(pn53x_ack_frame), 1000);
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    const uint8_t cmd[] = {
+        0x00, // preamble
+        0x00, 0xFF, // start code
+        0x02, // length
+        0x100-0x02, // length checksum
+        0xD4, // host to PN
+        0x02, // get firmware version
+        0x100-0xD4-0x02, // data checksum
+        0x00 // post amble
+    };        
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    const int res = avr_spi_send(pnd->driver_data, cmd, sizeof(cmd), 1000);
+    printf("%s(%d)\n", __FILE__, __LINE__);
     avr_spi_end_transaction(pnd->driver_data);
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    
+    wait_p70_irq(1000);
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    avr_spi_begin_transaction(pnd->driver_data);
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    // TODO: Read ACK
+    uint8_t ack_buf[7];
+    avr_spi_receive(pnd->driver_data, ack_buf, sizeof(ack_buf), NULL, 1000);
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    avr_spi_end_transaction(pnd->driver_data);
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    
+    wait_p70_irq(1000);
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    avr_spi_begin_transaction(pnd->driver_data);
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    // TODO: Read response
+    uint8_t ver_buf[32];
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    avr_spi_receive(pnd->driver_data, ver_buf, sizeof(ver_buf), NULL, 1000);
+    printf("%s(%d)\n", __FILE__, __LINE__);
+    avr_spi_end_transaction(pnd->driver_data);
+    printf("%s(%d)\n", __FILE__, __LINE__);
     return res;
 }
 
