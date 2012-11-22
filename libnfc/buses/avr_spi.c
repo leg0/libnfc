@@ -63,61 +63,71 @@
 #endif
 
 
-// PN53x SPI bus is "active low". See 6.1.1.1  SPI interface.
-static void avr_spi_deselect()
-{
-    SPI_PORT |= 1 << SPI_SS_PIN;
-}
-
-static void avr_spi_select()
-{
-    SPI_PORT &= ~(1 << SPI_SS_PIN);
-}
-
 static void avr_spi_setup()
 {  
     // specify pin directions for SPI pins on port B
-    SPI_DDRx |= (1<<SPI_MOSI_PIN)
-             |  (1<<SPI_SCK_PIN)
-             |  (1<<SPI_SS_PIN); // output
-    SPI_DDRx &= ~(1<<SPI_MISO_PIN); // input
+    SPI_DDRx |=  _BV(SPI_MOSI_PIN)  // output
+             |   _BV(SPI_SCK_PIN)   // output
+             |   _BV(SPI_SS_PIN);   // output
+    SPI_DDRx &= ~_BV(SPI_MISO_PIN); // input
 
-    SPCR = 0 // (1<<SPIE) // interrupt not enabled
-         | (1<<SPE) // enable SPI
-         | (SPI_BITORDER << DORD) // LSB or MSB
-         | (1 <<MSTR) // Master
-         | (SPI_CPOL << CPOL)
-         | (SPI_CPHA << CPHA)
-         | (SPI_SPR1 << SPR1)
-         | (SPI_SPR0 << SPR0);
-    SPSR = (SPI_SPI2X << SPI2X);
-
-    avr_spi_deselect();
+    SPI_PORT &= ~_BV(SPI_SCK_PIN);  // low
+    SPI_PORT &= ~_BV(SPI_MOSI_PIN); // low
+    SPI_PORT |=  _BV(SPI_SS_PIN);   // high
+    
+//    SPCR = 0 // (1<<SPIE) // interrupt not enabled
+//         | _BV(SPE) // enable SPI
+//         | (SPI_BITORDER << DORD) // LSB or MSB
+//         | _BV(MSTR) // Master
+//         | (SPI_CPOL << CPOL)
+//         | (SPI_CPHA << CPHA)
+//         | (SPI_SPR1 << SPR1)
+//         | (SPI_SPR0 << SPR0);
+//    SPSR = (SPI_SPI2X << SPI2X);
+    
+    uint8_t const SPI_MODE0 = 0x00;
+    uint8_t const SPI_MODE_MASK = 0x0C;
+    uint8_t const SPI_CLOCK_MASK = 0x03;
+    uint8_t const SPI_CLOCK_DIV4 = 0x00;
+    uint8_t const SPI_2XCLOCK_MASK = 0x01;
+    
+    SPCR = _BV(MSTR) | _BV(DORD) | _BV(SPE) | SPI_MODE0 | (SPI_CLOCK_DIV4 & SPI_CLOCK_MASK);
+    SPSR  = (SPSR & ~SPI_2XCLOCK_MASK) | ((SPI_CLOCK_DIV4 >> 2) & SPI_2XCLOCK_MASK);
+    
+    printf("DDRB= %02x\n", DDRB);
+    printf("PORTB=%02x\n", PORTB);
+    printf("SPCR= %02x\n", SPCR);
+    printf("SPSR= %02x\n", SPSR);
 }
 
 static void avr_spi_disable()
 {
-    SPCR = 0;
+    SPCR &= ~_BV(SPE);
 }
 
 typedef struct avr_spi
 {
     bool isOpen;
-    bool isSelected;
+    
+    /// When no device on the bus is selected, this field is NULL, otherwise it points
+    /// to a selector object that provides functions to select/deselect the device.
+    avr_spi_selector const* sel;
 } avr_spi;
 
 avr_spi port =
 {
     .isOpen = false,
-    .isSelected = false,
+    .sel = NULL
 };
 
-avr_spi_handle avr_spi_open(const char * pcPortName)
+avr_spi_handle avr_spi_open(const char * name)
 {
+    assert(sel != NULL);
+    
     if (port.isOpen) return NULL;
 
     port.isOpen = true;
-    port.isSelected = false;
+    port.sel = NULL;
     avr_spi_setup();
     return &port;
 }
@@ -132,24 +142,25 @@ void avr_spi_close(avr_spi_handle h)
     port.isOpen = false;
 }
 
-void avr_spi_begin_transaction(avr_spi_handle h)
+void avr_spi_begin_transaction(avr_spi_handle h, avr_spi_selector const* sel)
 {
     assert(h == &port);
     assert(h->isOpen);
-    assert(!h->isSelected);
+    assert(h->sel == NULL);
+    assert(sel != NULL);
 
-    h->isSelected = true;
-    avr_spi_select();
+    h->sel = sel;
+    sel->select();
 }
 
 void avr_spi_end_transaction(avr_spi_handle h)
 {
     assert(h == &port);
     assert(h->isOpen);
-    assert(h->isSelected);
+    assert(h->sel != NULL);
 
-    h->isSelected = false;
-    avr_spi_deselect();
+    h->sel->deselect();
+    h->sel = NULL;
 }
 
 uint8_t avr_spi_transceive_byte(avr_spi_handle h, uint8_t out)

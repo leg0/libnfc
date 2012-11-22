@@ -30,6 +30,7 @@
 //#include <stdio.h>
 //#include <stdlib.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #include <string.h>
 
@@ -52,45 +53,119 @@
 // Begin P70_IRQ 
 //
 
-// P70_IRQ is triggered by the PN53x when it has data avilable for the
+// P70_IRQ is triggered by the PN53x when it has data available for the
 // host.
 
 #if defined(__AVR_ATmega328P__) // Arduino Uno Rev3
 #  define PN532_P70_IRQ_PORT PORTD
+#  define PN532_P70_IRQ_DDR  DDRD
 #  define PN532_P70_IRQ_PIN  PORTD2
 #  define PN532_P70_IRQ_VECT INT0_vect
 #  define PN532_P70_IRQ_INT  INT0
 #  define PN532_P70_IRQ_MSK  EIMSK
+#  define PN532_P70_IRQ_EICR EICRA
+#  define PN532_P70_IRQ_ISC  (_BV(ISC01))
 #elif defined(__AVR_ATmega2560__) // Arduino Mega 2560
 #  define PN532_P70_IRQ_PORT PORTE
+#  define PN532_P70_IRQ_DDR  DDRE
 #  define PN532_P70_IRQ_PIN  PORTE4
 #  define PN532_P70_IRQ_VECT INT4_vect
 #  define PN532_P70_IRQ_INT  INT4
 #  define PN532_P70_IRQ_MSK  EIMSK
+#  define PN532_P70_IRQ_EICR EICRB
+#  define PN532_P70_IRQ_ISC1  ISC41
+#  define PN532_P70_IRQ_ISC0  ISC40
 #else
 #  error "Don't know where the P70_IRQ is connected to"
 #endif
 
 #include <avr/interrupt.h>
 #include <avr/io.h>
+#include <avr/delay.h>
 
-volatile bool p70_irq = false;
+static uint8_t p70_irq_pin();
+
+volatile bool p70_irq = true;
 ISR(PN532_P70_IRQ_VECT)
+{
+    p70_irq = p70_irq_pin();
+    //printf("interrupt: p70_irq=%d\n", p70_irq);
+}
+
+
+/// Waits for p70_irq to change to specified state.
+///
+/// @param [in] timeout_ms - number of milliseconds to wait for
+///        state change.
+///
+/// @retval true if p70_irq is in required state.
+/// @retval false if the wait timed out.
+static bool p70_irq_wait(int timeout_ms)
+{
+    for (int i = 0; p70_irq == 1; ++i)
+    {
+        if (i >= timeout_ms) return false;
+        _delay_ms(1);
+    }
+    
+    return true;
+}    
+
+static void p70_irq_reset()
 {
     p70_irq = true;
 }
 
-static void wait_p70_irq(int timeout)
+static void p70_irq_init()
 {
-    while (!p70_irq)
-    { }
-        
-    p70_irq = false;
+    sei();
+
+    // enable the interrupt
+    PN532_P70_IRQ_MSK |= _BV(PN532_P70_IRQ_INT);
+    
+    // trigger interrupt on falling edge only
+    PN532_P70_IRQ_EICR |= _BV(PN532_P70_IRQ_ISC1);
+    PN532_P70_IRQ_EICR &= _BV(PN532_P70_IRQ_ISC0);
+    
+    // make the pin an input
+    PN532_P70_IRQ_DDR &= ~_BV(PN532_P70_IRQ_PIN);
+    
+    p70_irq_reset();
 }    
+
+static uint8_t p70_irq_pin()
+{
+    return (PN532_P70_IRQ_PORT & _BV(PN532_P70_IRQ_PIN)) != 0;
+}
 
 //
 // End P70_IRQ
 //
+
+//
+// Begin device select
+//
+
+static void pn53x_avr_spi_select()
+{
+    PORTB &= ~_BV(PORTB4);
+}
+
+static void pn53x_avr_spi_deselect()
+{
+    PORTB |= _BV(PORTB4);
+}    
+
+static avr_spi_selector const pn532_avr_spi_selector =
+{
+    .select = pn53x_avr_spi_select,
+    .deselect = pn53x_avr_spi_deselect
+};    
+
+//
+// End device select
+//
+
 
 static int pn53x_avr_spi_handshake(nfc_device *pnd);
 static const struct pn53x_io pn53x_avr_spi_io;
@@ -131,9 +206,7 @@ pn53x_avr_spi_open(const nfc_connstring connstring)
         return NULL;
     }
 
-    // Set up the P70_IRQ handling.
-    PN532_P70_IRQ_MSK |= (1 << PN532_P70_IRQ_INT);
-    sei();
+    p70_irq_init();
                     
     nfc_device* pnd = &the_avr_spi_device;
     pnd->driver = &pn53x_avr_spi_driver;
@@ -148,9 +221,15 @@ pn53x_avr_spi_open(const nfc_connstring connstring)
     pnd->btSupportByte = 0;
     pnd->last_error = 0;
 
-    pn53x_avr_spi_handshake(pnd);
 
-    return pnd;
+    if (pn53x_avr_spi_handshake(pnd) == NFC_SUCCESS)
+    {
+        return pnd;
+    }
+    else
+    {
+        return NULL;
+    }                
 }
 
 static void
@@ -421,7 +500,6 @@ pn53x_avr_spi_send(nfc_device *pnd, const uint8_t *pbtData, const size_t szData,
     return res;
 }
 
-#define AVR_SPI_TIMEOUT_PER_PASS 200
 static int
 pn53x_avr_spi_receive(nfc_device *pnd, uint8_t *pbtData, const size_t szDataLen, const int timeout)
 {
@@ -435,6 +513,28 @@ pn53x_avr_spi_receive(nfc_device *pnd, uint8_t *pbtData, const size_t szDataLen,
     return res;
 }
 
+///////////////////////////////////////////////////////
+#include <avr/io.h>
+
+static void avr_spi_deselect()
+{
+    PORTB |= _BV(PORTB2);
+}
+
+static void avr_spi_select()
+{
+    PORTB &= ~_BV(PORTB2);
+}
+
+static uint8_t avr_spi_transceive(uint8_t out)
+{
+    SPDR = out;
+    while (!(SPSR & (1<<SPIF)));
+    return SPDR;
+}    
+
+///////////////////////////////////////////////////////
+
 static int
 pn53x_avr_spi_handshake(nfc_device *pnd)
 {
@@ -442,36 +542,90 @@ pn53x_avr_spi_handshake(nfc_device *pnd)
     assert(pnd->driver_data != NULL);
     
     printf("%s(%d)\n", __FILE__, __LINE__);
-    avr_spi_begin_transaction(pnd->driver_data);
-    printf("%s(%d)\n", __FILE__, __LINE__);
-    const uint8_t cmd[] = {
-        0x00, // preamble
-        0x00, 0xFF, // start code
-        0x02, // length
-        0x100-0x02, // length checksum
-        0xD4, // host to PN
-        0x02, // get firmware version
-        0x100-0xD4-0x02, // data checksum
-        0x00 // post amble
-    };        
-    printf("%s(%d)\n", __FILE__, __LINE__);
-    const int res = avr_spi_send(pnd->driver_data, cmd, sizeof(cmd), 1000);
-    printf("%s(%d)\n", __FILE__, __LINE__);
-    avr_spi_end_transaction(pnd->driver_data);
-    printf("%s(%d)\n", __FILE__, __LINE__);
+    p70_irq_reset();
     
-    wait_p70_irq(1000);
-    printf("%s(%d)\n", __FILE__, __LINE__);
+    avr_spi_select();
+            const uint8_t cmd[] = {
+                0x00, // preamble
+                0x00, 0xFF, // start code
+                0x02, // length
+                0x100-0x02, // length checksum
+                0xD4, // host to PN
+                0x02, // get firmware version
+                0x100-0xD4-0x02, // data checksum
+                0x00 // post amble
+            };
+            avr_spi_transceive(0x01); // spi_datawrite
+            for (int i = 0; i < sizeof(cmd); ++i)
+            {
+                avr_spi_transceive(cmd[i]);
+            }
+            
+            for (uint16_t i = 0; ; ++i)
+            {
+                if (i == 0) printf("%c", '.');
+                uint8_t const status = avr_spi_transceive(0x02); // status read
+                if (status == 0x01)
+                {
+                    puts("PN532 is ready!");
+                    break;
+                }                    
+            }
+            
+            for (int i = 0; i < 128; ++i)
+            {
+                uint8_t const data = avr_spi_transceive(0x03); // spi_dataread
+                printf("%02x ", data);
+            }
+    avr_spi_deselect();
+    assert(false);
+    #if 0
     avr_spi_begin_transaction(pnd->driver_data);
-    printf("%s(%d)\n", __FILE__, __LINE__);
-    // TODO: Read ACK
-    uint8_t ack_buf[7];
-    avr_spi_receive(pnd->driver_data, ack_buf, sizeof(ack_buf), NULL, 1000);
-    printf("%s(%d)\n", __FILE__, __LINE__);
+    {
+        const uint8_t cmd[] = {
+            0x00, // preamble
+            0x00, 0xFF, // start code
+            0x02, // length
+            0x100-0x02, // length checksum
+            0xD4, // host to PN
+            0x02, // get firmware version
+            0x100-0xD4-0x02, // data checksum
+            0x00 // post amble
+        };
+
+        const int res = avr_spi_send(pnd->driver_data, cmd, sizeof(cmd), 1000);
+    }        
     avr_spi_end_transaction(pnd->driver_data);
-    printf("%s(%d)\n", __FILE__, __LINE__);
     
-    wait_p70_irq(1000);
+    if (!p70_irq_wait(INT_MAX))
+    {
+        printf("%s(%d): Timeout waiting for p70_irq\n", __FILE__, __LINE__);
+        return NFC_EIO;
+    }        
+
+    p70_irq_reset();
+    avr_spi_begin_transaction(pnd->driver_data);
+    {
+        while (true)
+        {
+            printf("p70_irq=%d\n", p70_irq_pin());
+            
+            uint8_t ack_buf[7];
+            avr_spi_receive(pnd->driver_data, ack_buf, sizeof(ack_buf), NULL, 1000);
+            for (int i = 0; i < sizeof(ack_buf); ++i)
+            {
+                printf("%02x ", ack_buf[i]);
+            }        
+            _delay_ms(1000);
+        }            
+    }
+    avr_spi_end_transaction(pnd->driver_data);
+    
+    p70_irq_reset();
+    if (!p70_irq_wait(1000))
+    {
+        return NFC_EIO;
+    }        
     printf("%s(%d)\n", __FILE__, __LINE__);
     avr_spi_begin_transaction(pnd->driver_data);
     printf("%s(%d)\n", __FILE__, __LINE__);
@@ -482,7 +636,8 @@ pn53x_avr_spi_handshake(nfc_device *pnd)
     printf("%s(%d)\n", __FILE__, __LINE__);
     avr_spi_end_transaction(pnd->driver_data);
     printf("%s(%d)\n", __FILE__, __LINE__);
-    return res;
+    #endif
+    return NFC_SUCCESS;
 }
 
 static int

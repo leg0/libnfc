@@ -136,16 +136,63 @@ static void hang(int n)
 	}
 }
 
-static int xxx = 123;
+void serial_puts(char const* s);
+int serial_putch(char ch, FILE* f);
+FILE* serial_open();
 
+struct XXX {
+  /** Chip type (PN531, PN532 or PN533) */
+  enum { X } type;
+  /** Chip firmware text */
+  char firmware_text[22];
+};
+
+#include "nfc-internal.h"
+#include "chips/pn53x-internal.h"
+#include "chips/pn53x.h"
+
+int
+comm(struct nfc_device *pnd, FILE* f)
+{
+  const uint8_t abtCmd[] = { Diagnose, 0x00, 'l', 'i', 'b', 'n', 'f', 'c' };
+  const uint8_t abtExpectedRx[] = { 0x00, 'l', 'i', 'b', 'n', 'f', 'c' };
+  uint8_t abtRx[sizeof(abtExpectedRx)+20];
+  size_t szRx = sizeof(abtRx);
+  int res = 0;
+
+  fprintf(f, "Sending: %c", '\n');
+  for (int i = 0; i < sizeof(abtCmd); ++i)
+  {
+      fprintf(f, "%02x ", abtCmd[i]);
+  }
+  fprintf(f, "%c", '\n');
+  
+  if ((res = pn53x_transceive(pnd, abtCmd, sizeof(abtCmd), abtRx, szRx, 500)) < 0)
+    return res;
+    
+  szRx = (size_t) res;
+  fprintf(f, "Received %d bytes:%c", res, '\n');
+  for (int i = 0; i < szRx; ++i)
+  {
+      fprintf(f, "%02x ", abtRx[i]);
+  }      
+  fprintf(f, "%c", '\n');
+  
+
+  if ((sizeof(abtExpectedRx) == szRx) && (0 == memcmp(abtRx, abtExpectedRx, sizeof(abtExpectedRx))))
+    return NFC_SUCCESS;
+
+  return NFC_EIO;
+}
+
+#include <avr/io.h> // XXX:
 int
 main()
 {
-  FILE *message_stream = NULL;
-  FILE *ndef_stream = NULL;
+  FILE *message_stream = serial_open();
+  FILE *ndef_stream = message_stream;
 
-  message_stream = stderr;
-  ndef_stream = stdout;
+  stderr = stdout = message_stream;
 
   nfc_init(NULL);
 
@@ -159,22 +206,49 @@ main()
   fprintf(message_stream, "NFC device: %s opened\n", nfc_device_get_name(pnd));
 
   nfc_modulation nm = {
+#if 0
     .nmt = NMT_FELICA,
     .nbr = NBR_212,
+#else
+    .nmt = NMT_ISO14443A,
+    .nbr = NBR_106,
+#endif
   };
 
 
+  comm(pnd, message_stream);
+  hang(0);
+  /*
+  if (pn53x_check_communication(pnd) == NFC_SUCCESS)
+  {
+    fprintf(message_stream, "Communication OK%c", '\n');
+  }
+  else
+  {
+    fprintf(message_stream, "Cannot communicate with the chip%c", '\n');
+  }
+
+  if (pn53x_decode_firmware_version(pnd) == NFC_SUCCESS)
+  {
+    fprintf(message_stream, "Failed to get firmware version%c", '\n');
+  }
+  else
+  {
+    fprintf(message_stream, "Found: %s%c", CHIP_DATA(pnd)->firmware_text, '\n');
+  }
+  
   nfc_target nt;
 
   if (nfc_initiator_init(pnd) < 0) {
     nfc_perror(pnd, "nfc_initiator_init");
     exit(EXIT_FAILURE);
   }
-  fprintf(message_stream, "Place your NFC Forum Tag Type 3 in the field...\n");
+  fprintf(message_stream, "Place your NFC Forum Tag Type 3 in the field...%c", '\n');
+
 
   int error = EXIT_SUCCESS;
   // Polling payload (SENSF_REQ) must be present (see NFC Digital Protol)
-  const uint8_t *pbtSensfReq = (uint8_t *)"\x00\xff\xff\x01\x00";
+  const uint8_t pbtSensfReq[] = "\x00\xff\xff\x01\x00";
   if (nfc_initiator_select_passive_target(pnd, nm, pbtSensfReq, 5, &nt) < 0) {
     nfc_perror(pnd, "nfc_initiator_select_passive_target");
     error = EXIT_FAILURE;
@@ -193,13 +267,11 @@ main()
     }
     // Check again if System Code equals 0x12fc
     if (0 != memcmp(nt.nti.nfi.abtSysCode, abtNfcForumSysCode, 2)) {
-      fprintf(stderr, "Tag is not NFC Forum Tag Type 3 compliant.\n");
+      fprintf(stderr, "Tag is not NFC Forum Tag Type 3 compliant.%c", '\n');
       error = EXIT_FAILURE;
       goto error;
     }
   }
-
-  //print_nfc_felica_info(nt.nti.nfi, true);
 
   if ((nfc_device_set_property_bool(pnd, NP_EASY_FRAMING, false) < 0) || (nfc_device_set_property_bool(pnd, NP_INFINITE_SELECT, false) < 0)) {
     nfc_perror(pnd, "nfc_device_set_property_bool");
@@ -207,11 +279,11 @@ main()
     goto error;
   }
 
-  uint8_t data[1024];
-  size_t data_len = sizeof(data);
-  int len;
+  size_t data_len = 1024;
+  uint8_t* data = alloca(data_len);
 
-  if (0 >= (len = nfc_forum_tag_type3_check(pnd, nt, 0, 1, data, &data_len))) {
+  const int len = nfc_forum_tag_type3_check(pnd, nt, 0, 1, data, &data_len);
+  if (0 >= len) {
     nfc_perror(pnd, "nfc_forum_tag_type3_check");
     error = EXIT_FAILURE;
     goto error;
@@ -270,4 +342,5 @@ error:
   }
   nfc_exit(NULL);
   hang(error);
+  */
 }

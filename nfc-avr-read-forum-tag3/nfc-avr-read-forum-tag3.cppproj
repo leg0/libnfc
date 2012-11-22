@@ -104,6 +104,11 @@
   <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
   <avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultCharTypeUnsigned>
   <avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>True</avrgcccpp.compiler.general.ChangeDefaultBitFieldUnsigned>
+  <avrgcccpp.compiler.directories.IncludePaths>
+    <ListValues>
+      <Value>../../contrib/avr</Value>
+    </ListValues>
+  </avrgcccpp.compiler.directories.IncludePaths>
   <avrgcccpp.compiler.optimization.PackStructureMembers>True</avrgcccpp.compiler.optimization.PackStructureMembers>
   <avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>
   <avrgcccpp.compiler.optimization.DebugLevel>Maximum (-g3)</avrgcccpp.compiler.optimization.DebugLevel>
@@ -125,6 +130,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="nfc-avr-read-forum-tag3.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="x.cpp">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>

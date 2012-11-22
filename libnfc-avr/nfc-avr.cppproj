@@ -64,6 +64,7 @@
       <Value>DRIVER_PN53X_AVR_SPI_ENABLED</Value>
       <Value>LIBNFC_MAX_CONNSTRING_LENGTH=64</Value>
       <Value>DEVICE_NAME_LENGTH=64</Value>
+      <Value>__ASSERT_USE_STDERR</Value>
     </ListValues>
   </avrgcc.compiler.symbols.DefSymbols>
   <avrgcc.compiler.directories.IncludePaths>
@@ -137,10 +138,6 @@
     <Compile Include="..\libnfc\drivers\pn53x_avr_spi.h">
       <SubType>compile</SubType>
       <Link>pn53x_avr_spi.h</Link>
-    </Compile>
-    <Compile Include="..\contrib\avr\err.c">
-      <SubType>compile</SubType>
-      <Link>err.c</Link>
     </Compile>
     <Compile Include="..\contrib\avr\err.h">
       <SubType>compile</SubType>

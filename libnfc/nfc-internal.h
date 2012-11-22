@@ -73,11 +73,20 @@
  */
 
 /*
- * Initialise a buffer named buffer_name of size bytes.
+ * Initialise a buffer named buffer_name of size bytes. In small devices where
+ * RAM is scarce, the buffer allocation is deferred as long as possible. As a
+ * result care must be taken not to invoke BUFFER_INIT in a loop, otherwise a
+ * buffer overflow is quick to follow.
  */
-#define BUFFER_INIT(buffer_name, size) \
-  uint8_t buffer_name[size]; \
-  size_t __##buffer_name##_n = 0
+#if defined(__AVR__)
+#  define BUFFER_INIT(buffer_name, size) \
+    uint8_t* buffer_name = alloca(size); \
+    size_t __##buffer_name##_n = 0
+#else
+#  define BUFFER_INIT(buffer_name, size) \
+    uint8_t buffer_name[size]; \
+    size_t __##buffer_name##_n = 0
+#endif
 
 /*
  * Create a wrapper for an existing buffer.
