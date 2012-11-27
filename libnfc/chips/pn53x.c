@@ -174,7 +174,7 @@ pn53x_transceive(struct nfc_device *pnd, const uint8_t *pbtTx, const size_t szTx
     szRx = szRxLen;
   }
 
-  // Call the send/receice callback functions of the current driver
+  // Call the send/receive callback functions of the current driver
   if ((res = CHIP_DATA(pnd)->io->send(pnd, pbtTx, szTx, timeout)) < 0) {
     return res;
   }
@@ -754,7 +754,7 @@ pn53x_decode_firmware_version(struct nfc_device *pnd)
       pnd->btSupportByte = abtFw[3];
       break;
     case PN53X:
-      // Could not happend
+      // Could not happen
       break;
   }
   return NFC_SUCCESS;
@@ -1016,7 +1016,6 @@ pn53x_initiator_init(struct nfc_device *pnd)
   // Configure the PN53X to be an Initiator or Reader/Writer
   if ((res = pn53x_write_register(pnd, PN53X_REG_CIU_Control, SYMBOL_INITIATOR, 0x10)) < 0)
     return res;
-
   CHIP_DATA(pnd)->operating_mode = INITIATOR;
   return NFC_SUCCESS;
 }
