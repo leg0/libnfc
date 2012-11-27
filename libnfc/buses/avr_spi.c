@@ -122,8 +122,6 @@ avr_spi port =
 
 avr_spi_handle avr_spi_open(const char * name)
 {
-    assert(sel != NULL);
-    
     if (port.isOpen) return NULL;
 
     port.isOpen = true;
@@ -167,7 +165,7 @@ uint8_t avr_spi_transceive_byte(avr_spi_handle h, uint8_t out)
 {
     assert(h == &port);
     assert(h->isOpen);
-    assert(h->isSelected);
+    assert(h->sel != NULL);
     
     SPDR = out;
     while (!(SPSR & (1<<SPIF)));
@@ -178,7 +176,7 @@ int avr_spi_receive(avr_spi_handle h, uint8_t* pbtRx, const size_t szRx, void* a
 {
     assert(h == &port);
     assert(h->isOpen);
-    assert(h->isSelected);
+    assert(h->sel != NULL);
 
     for (size_t i = 0; i < szRx; ++i)
     {
@@ -193,13 +191,11 @@ int avr_spi_send(avr_spi_handle h, const uint8_t* pbtTx, const size_t szTx, int 
 {
     assert(h == &port);
     assert(h->isOpen);
-    assert(h->isSelected);
+    assert(h->sel != NULL);
     assert(pbtTx != NULL);
 
-    printf("%s(%d): Sending %d bytes\n", __FILE__, __LINE__, szTx);
     for (size_t i = 0; i < szTx; ++i)
     {
-        printf("%02x ", pbtTx[i]);
         avr_spi_transceive_byte(h, pbtTx[i]);
     }
     printf("%c", '\n');
