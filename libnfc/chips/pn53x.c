@@ -2237,7 +2237,7 @@ pn53x_SetParameters(struct nfc_device *pnd, const uint8_t ui8Value)
 int
 pn532_SAMConfiguration(struct nfc_device *pnd, const pn532_sam_mode sam_mode, int timeout)
 {
-  uint8_t abtCmd[] = { SAMConfiguration, sam_mode, 0x00, 0x00 };
+  uint8_t abtCmd[] = { SAMConfiguration, sam_mode, 0x00, 0x01 };
   size_t szCmd = sizeof(abtCmd);
 
   if (CHIP_DATA(pnd)->type != PN532) {
