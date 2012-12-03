@@ -130,9 +130,9 @@ nfc_forum_tag_type3_check(nfc_device *dev, const nfc_target nt, const uint16_t b
 
 static void hang(int n)
 {
-	while (true)
+	for (uint32_t i = 0; ; ++i)
 	{
-		fprintf(stderr, "%d\n", n);
+      if (i == 0) printf("hang%d\n", n);
 	}
 }
 
@@ -140,43 +140,39 @@ void serial_puts(char const* s);
 int serial_putch(char ch, FILE* f);
 FILE* serial_open();
 
-struct XXX {
-  /** Chip type (PN531, PN532 or PN533) */
-  enum { X } type;
-  /** Chip firmware text */
-  char firmware_text[22];
-};
 
 #include "nfc-internal.h"
 #include "chips/pn53x-internal.h"
 #include "chips/pn53x.h"
 
+#if 0
 int
-comm(struct nfc_device *pnd, FILE* f)
+comm(struct nfc_device *pnd)
 {
-  const uint8_t abtCmd[] = { Diagnose, 0x00, 'l', 'i', 'b', 'n', 'f', 'c' };
+  //const uint8_t abtCmd[] = { Diagnose, 0x00, 'l', 'i', 'b', 'n', 'f', 'c' };
+  const uint8_t abtCmd[] = { GetFirmwareVersion };
   const uint8_t abtExpectedRx[] = { 0x00, 'l', 'i', 'b', 'n', 'f', 'c' };
-  uint8_t abtRx[sizeof(abtExpectedRx)+20];
-  size_t szRx = sizeof(abtRx);
   int res = 0;
 
-  fprintf(f, "Sending: %c", '\n');
+  printf("Sending: %c", '\n');
   for (int i = 0; i < sizeof(abtCmd); ++i)
   {
-      fprintf(f, "%02x ", abtCmd[i]);
+      printf("%02x ", abtCmd[i]);
   }
-  fprintf(f, "%c", '\n');
+  printf("%c", '\n');
   
+  uint8_t abtRx[sizeof(abtExpectedRx)+20] = {0};
+  size_t szRx = sizeof(abtRx);
   if ((res = pn53x_transceive(pnd, abtCmd, sizeof(abtCmd), abtRx, szRx, 500)) < 0)
     return res;
     
   szRx = (size_t) res;
-  fprintf(f, "Received %d bytes:%c", res, '\n');
+  printf("Received %d bytes:%c", res, '\n');
   for (int i = 0; i < szRx; ++i)
   {
-      fprintf(f, "%02x ", abtRx[i]);
+      printf("%02x ", abtRx[i]);
   }      
-  fprintf(f, "%c", '\n');
+  printf("%c", '\n');
   
 
   if ((sizeof(abtExpectedRx) == szRx) && (0 == memcmp(abtRx, abtExpectedRx, sizeof(abtExpectedRx))))
@@ -184,8 +180,9 @@ comm(struct nfc_device *pnd, FILE* f)
 
   return NFC_EIO;
 }
+#endif
 
-#include <avr/io.h> // XXX:
+#include <util/delay.h> // XXX:
 int
 main()
 {
@@ -194,63 +191,82 @@ main()
 
   stderr = stdout = message_stream;
 
-  nfc_init(NULL);
+  nfc_context* context;
+  nfc_init(&context);
 
   pnd = nfc_open(NULL, "pn53x_avr_spi");
 
   if (pnd == NULL) {
-    ERR("Unable to open NFC device");
+    puts("Unable to open NFC device");
     hang(EXIT_FAILURE);
   }
 
-  fprintf(message_stream, "NFC device: %s opened\n", nfc_device_get_name(pnd));
+  printf("NFC device: %s opened\n", nfc_device_get_name(pnd));
 
-  nfc_modulation nm = {
-#if 0
-    .nmt = NMT_FELICA,
-    .nbr = NBR_212,
-#else
-    .nmt = NMT_ISO14443A,
-    .nbr = NBR_106,
-#endif
-  };
-
-
-  comm(pnd, message_stream);
-  hang(0);
-  /*
-  if (pn53x_check_communication(pnd) == NFC_SUCCESS)
+  uint8_t const cmd[] = { SAMConfiguration, PSM_NORMAL, 20, 1 };
+  uint8_t rx[64];
+    pn53x_transceive(pnd, cmd, sizeof(cmd), rx, sizeof(rx), 1000);
+  int res = pn532_SAMConfiguration(pnd, PSM_NORMAL, 1000);
+  printf("SAM result=%d\n", res);
+  
+  res = pn53x_check_communication(pnd);
+  if (res == NFC_SUCCESS)
   {
-    fprintf(message_stream, "Communication OK%c", '\n');
+    puts("Communication OK");
   }
   else
   {
-    fprintf(message_stream, "Cannot communicate with the chip%c", '\n');
+    printf("Cannot communicate with the chip: %d\n");
+    hang(99);
   }
 
-  if (pn53x_decode_firmware_version(pnd) == NFC_SUCCESS)
+  
+  while ((res = nfc_initiator_init(pnd)) < 0)
   {
-    fprintf(message_stream, "Failed to get firmware version%c", '\n');
-  }
-  else
-  {
-    fprintf(message_stream, "Found: %s%c", CHIP_DATA(pnd)->firmware_text, '\n');
+    printf("Failed to initialize NFC: %d\n", res);
+    nfc_perror(pnd, "nfc_initiator_init");
   }
   
-  nfc_target nt;
+  printf("Place your NFC Forum Tag Type 3 in the field...%c", '\n');
 
-  if (nfc_initiator_init(pnd) < 0) {
-    nfc_perror(pnd, "nfc_initiator_init");
-    exit(EXIT_FAILURE);
+  const nfc_modulation nm = {
+    .nmt = NMT_ISO14443A,
+    .nbr = NBR_106    
+    //pn532::BrTy_106kbpsTypeA
+  };
+  
+  while (true)
+  {
+      nfc_target_info ti;
+      nfc_target ant[2];
+      int const nTargets = nfc_initiator_list_passive_targets(pnd, nm, ant, 2);
+      if (nTargets < 0)
+      {
+          printf("Error: %d\n", nTargets);
+      }
+      else
+      {
+          printf("Found %d targets\n", nTargets);
+          for (int i = 0; i < nTargets; ++i)
+          {
+              printf("%d: UID=", i);
+              for (int j = 0; j < sizeof(ant[i].nti.nai.abtUid); ++j)
+              {
+                  printf("%02x", ant[i].nti.nai.abtUid[j]);
+              }
+              puts("");
+          }
+      }
+      _delay_ms(10);
   }
-  fprintf(message_stream, "Place your NFC Forum Tag Type 3 in the field...%c", '\n');
-
-
+  
   int error = EXIT_SUCCESS;
-  // Polling payload (SENSF_REQ) must be present (see NFC Digital Protol)
+  // Polling payload (SENSF_REQ) must be present (see NFC Digital Protocol)
   const uint8_t pbtSensfReq[] = "\x00\xff\xff\x01\x00";
+  nfc_target nt;
   if (nfc_initiator_select_passive_target(pnd, nm, pbtSensfReq, 5, &nt) < 0) {
     nfc_perror(pnd, "nfc_initiator_select_passive_target");
+    puts("Select passive target failed!");
     error = EXIT_FAILURE;
     goto error;
   }
@@ -280,7 +296,7 @@ main()
   }
 
   size_t data_len = 1024;
-  uint8_t* data = alloca(data_len);
+  uint8_t data[1024];
 
   const int len = nfc_forum_tag_type3_check(pnd, nt, 0, 1, data, &data_len);
   if (0 >= len) {
@@ -342,5 +358,5 @@ error:
   }
   nfc_exit(NULL);
   hang(error);
-  */
 }
+

@@ -993,8 +993,17 @@ pn53x_check_communication(struct nfc_device *pnd)
   size_t szRx = sizeof(abtRx);
   int res = 0;
 
-  if ((res = pn53x_transceive(pnd, abtCmd, sizeof(abtCmd), abtRx, szRx, 500)) < 0)
+  if ((res = pn53x_transceive(pnd, abtCmd, sizeof(abtCmd), abtRx, szRx, 500)) < 0) {
+      printf("pn53x_check_communication: Transceive failed: %d\n", res);
     return res;
+  }    
+  
+  printf("%s(%d): Received: ", __FILE__, __LINE__);
+  for (int i = 0; i < sizeof(abtRx); ++i)
+  {
+      printf("%02X ", abtRx[i]);
+  }      
+  puts("");
   szRx = (size_t) res;
   if ((sizeof(abtExpectedRx) == szRx) && (0 == memcmp(abtRx, abtExpectedRx, sizeof(abtExpectedRx))))
     return NFC_SUCCESS;

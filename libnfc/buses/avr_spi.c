@@ -93,11 +93,6 @@ static void avr_spi_setup()
     
     SPCR = _BV(MSTR) | _BV(DORD) | _BV(SPE) | SPI_MODE0 | (SPI_CLOCK_DIV4 & SPI_CLOCK_MASK);
     SPSR  = (SPSR & ~SPI_2XCLOCK_MASK) | ((SPI_CLOCK_DIV4 >> 2) & SPI_2XCLOCK_MASK);
-    
-    printf("DDRB= %02x\n", DDRB);
-    printf("PORTB=%02x\n", PORTB);
-    printf("SPCR= %02x\n", SPCR);
-    printf("SPSR= %02x\n", SPSR);
 }
 
 static void avr_spi_disable()

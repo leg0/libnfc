@@ -68,7 +68,7 @@
 #  define PN532_P70_IRQ_MSK      EIMSK
 #  define PN532_P70_IRQ_EICR     EICRA
 #  define PN532_P70_IRQ_ISC1     ISC01
-#  define PN532_P70_IRQ_ISC1     ISC00
+#  define PN532_P70_IRQ_ISC0     ISC00
 #elif defined(__AVR_ATmega2560__) // Arduino Mega 2560
 #  define PN532_P70_IRQ_PORT_OUT PORTE
 #  define PN532_P70_IRQ_PORT_IN  PINE
@@ -117,7 +117,8 @@ static bool p70_irq_wait(int timeout_ms)
 {
     for (int i = 0; p70_irq == 1; ++i)
     {
-        if (i >= timeout_ms) return false;
+        if (i >= timeout_ms)
+            return false;
         _delay_ms(1);
     }
     
@@ -236,6 +237,7 @@ pn53x_avr_spi_open(const nfc_connstring connstring)
     pnd->driver = &pn53x_avr_spi_driver;
     pnd->driver_data = hSpi;
     pn53x_data_new(pnd, &pn53x_avr_spi_io);
+    CHIP_DATA(pnd)->type = PN532;
     strncpy(pnd->name, PN53X_AVR_SPI_DRIVER_NAME, sizeof(pnd->name));
     strncpy(pnd->connstring, PN53X_AVR_SPI_DRIVER_NAME, sizeof(pnd->connstring));
     pnd->bCrc = true; // ?? don't know that
@@ -304,12 +306,14 @@ typedef enum ReturnValue
     E_ErrorFrame,
 } ReturnValue;
 
-static ReturnValue read_data(nfc_device* pnd, uint8_t* const rxBuffer, const uint8_t szRx)
+/// @param [out] bytesRead - number of bytes written to rxBuffer.
+static ReturnValue read_data(nfc_device* pnd, uint8_t* const rxBuffer, const uint8_t szRx, uint8_t* bytesRead)
 {
     // TODO: optimize - read more than one byte at a time from SPI.
     
     assert(pnd != NULL);
     assert(rxBuffer != NULL);
+    assert(bytesRead != NULL);
     
     // 00 00 FF <LEN> <LCS> D5 <CC+1> <optional output data> <DCS> 00
     typedef enum ReadState {
@@ -339,7 +343,9 @@ static ReturnValue read_data(nfc_device* pnd, uint8_t* const rxBuffer, const uin
             return E_InsufficientBuffer;
         }
         uint8_t const b = *(p++) = pn53x_read_byte(pnd);
-        //printf("%02X ", b);
+        //printf("%02X-", b);
+        //printf("");
+        _delay_ms(1); // XXX: why does it not work without this delay?
 
         switch (state)
         {
@@ -378,17 +384,27 @@ static ReturnValue read_data(nfc_device* pnd, uint8_t* const rxBuffer, const uin
             break;
         case ReadingLength:
                 length = b;
-                state = ReadingLcs;
-                break;
+                if (length+PN53x_NORMAL_FRAME__OVERHEAD > szRx) 
+                {                     
+                    return E_InsufficientBuffer;
+                }
+                else
+                {
+                    *bytesRead = length+PN53x_NORMAL_FRAME__OVERHEAD;
+                    state = ReadingLcs;
+                    break;
+                }                    
         case ReadingLcs:
             if (b == 0xff && length == 0)
             {
                 *(p++) = pn53x_read_byte(pnd);
+                *bytesRead = 6;
                 return S_AckFrame;
             }
             else if (b == 0 && length == 0xff)
             {
                 *(p++) = pn53x_read_byte(pnd);
+                *bytesRead = 6;
                 return S_NackFrame;
             }
             else if ((uint8_t)(b+length) != 0)
@@ -434,24 +450,20 @@ static ReturnValue read_data(nfc_device* pnd, uint8_t* const rxBuffer, const uin
             }
             break;
         case ReadingPostamble:
-            /*if (b != 0)
-            {
-                Debug::println("Error: Invalid postamble");
-                return E_InvalidPostamble;
-            }*/
             state = Done;
             break;
         }
     }
 
-    //Debug::println();
+    puts("~");
     return Success;
 }
     
 static bool pn53x_avr_spi_wait_ack(nfc_device* pnd, const int timeout)
 {    
-    //uint8_t ackBuffer[7];
-    //return S_AckFrame == read_data(pnd, ackBuffer, sizeof(ackBuffer));
+    uint8_t ackBuffer[7];
+    uint8_t bytesRead = 0;
+    return S_AckFrame == read_data(pnd, ackBuffer, sizeof(ackBuffer), &bytesRead);
 }
     
 #define PN53X_AVR_SPI_BUFFER_LEN (PN53x_EXTENDED_FRAME__DATA_MAX_LEN + PN53x_EXTENDED_FRAME__OVERHEAD)
@@ -493,11 +505,11 @@ pn53x_avr_spi_send(nfc_device *pnd, const uint8_t *pbtData, const size_t szData,
     dcs = ~dcs + 1;
     uint8_t const buf2[] = { dcs, PN532_POSTAMBLE };
     
-    printf("%s(%d): Sending: ", __FILE__, __LINE__);
-    dump_buf(buf1, sizeof(buf1));
-    dump_buf(pbtData, szData);
-    dump_buf(buf2, sizeof(buf2));
-    puts("");
+    //printf("%s(%d): Sending: ", __FILE__, __LINE__);
+    //dump_buf(buf1, sizeof(buf1));
+    //dump_buf(pbtData, szData);
+    //dump_buf(buf2, sizeof(buf2));
+    //puts("");
     
     // Send the command
     p70_irq_reset();
@@ -511,8 +523,8 @@ pn53x_avr_spi_send(nfc_device *pnd, const uint8_t *pbtData, const size_t szData,
     // Wait for ACK
     if (!p70_irq_wait(INT_MAX))
     {
-        printf("%s(%d): Timeout waiting for p70_irq\n", __FILE__, __LINE__);
-        return NFC_EIO;
+        //printf("%s(%d): Timeout waiting for p70_irq\n", __FILE__, __LINE__);
+        return NFC_ETIMEOUT;
     }
     p70_irq_reset();
     
@@ -548,22 +560,23 @@ pn53x_avr_spi_receive(nfc_device *pnd, uint8_t *pbtData, const size_t szDataLen,
     if (!p70_irq_wait(INT_MAX))
     {
         //printf("%s(%d): Timeout waiting for p70_irq\n", __FILE__, __LINE__);
-        return NFC_EIO;
+        return NFC_ETIMEOUT;
     }        
     p70_irq_reset();
     
     // TODO: respect the timeout
     avr_spi_begin_transaction(pnd->driver_data, &pn532_avr_spi_selector);
         uint8_t rxBuffer[255] = {0};
-        const ReturnValue res = read_data(pnd, rxBuffer, sizeof(rxBuffer));           
+        uint8_t bytesRead = 0;
+        const ReturnValue res = read_data(pnd, rxBuffer, sizeof(rxBuffer), &bytesRead);
     avr_spi_end_transaction(pnd->driver_data);
     
     if (res == Success)
     {
         memcpy(pbtData, rxBuffer+6, szDataLen);
-        printf("%s(%s): Received: ", __FILE__, __LINE__);
-        dump_buf(pbtData, szDataLen);
-        puts("");
+        //printf("%s(%d): Received %d bytes: ", __FILE__, __LINE__, bytesRead);
+        //dump_buf(pbtData, min(szDataLen, bytesRead));
+        //puts("");
         return szDataLen;
     }
     else
@@ -581,6 +594,7 @@ pn53x_avr_spi_handshake(nfc_device *pnd)
     p70_irq_reset();
     avr_spi_begin_transaction(DRIVER_DATA(pnd), &pn532_avr_spi_selector);
     {
+        for (int i = 0; i < 100; ++i) { _delay_ms(10); }
         const uint8_t cmd[] = {
             PN532_SPI_DATAWRITE, // indicate that we're going to send data
             0x00, // preamble
@@ -601,34 +615,30 @@ pn53x_avr_spi_handshake(nfc_device *pnd)
     {
         printf("%s(%d): Timeout waiting for p70_irq\n", __FILE__, __LINE__);
         assert(false);
-        return NFC_EIO;
+        return NFC_ETIMEOUT;
     }        
 
     p70_irq_reset();
     avr_spi_begin_transaction(pnd->driver_data, &pn532_avr_spi_selector);
     {
-        printf("p70_irq=%d\n", p70_irq_pin());
+        //printf("p70_irq=%d\n", p70_irq_pin());
             
         uint8_t ack_buf[6];
         avr_spi_transceive_byte(pnd->driver_data, PN532_SPI_DATAREAD);
         avr_spi_receive(pnd->driver_data, ack_buf, sizeof(ack_buf), NULL, 1000);
-        for (int i = 0; i < sizeof(ack_buf); ++i)
-        {
-            printf("%02x ", ack_buf[i]);
-        }
+        dump_buf(ack_buf, sizeof(ack_buf));
         if (memcmp(ack_buf, pn53x_ack_frame, sizeof(ack_buf)) == 0)
         {
-            printf("%s(%d): Got ACK frame!\n", __FILE__, __LINE__);
-            //break;
+            //printf("%s(%d): Got ACK frame!\n", __FILE__, __LINE__);
         }                
         else if (memcmp(ack_buf, pn53x_nack_frame, sizeof(ack_buf)) == 0)
         {
-            printf("%s(%d): Got NACK frame!\n", __FILE__, __LINE__);
+            //printf("%s(%d): Got NACK frame!\n", __FILE__, __LINE__);
             return NFC_EIO;
         }                
         else
         {
-            printf("%s(%d): Got some crap\n", __FILE__, __LINE__);
+            //printf("%s(%d): Got some crap\n", __FILE__, __LINE__);
             return NFC_EIO;
         }                
     }
@@ -636,22 +646,20 @@ pn53x_avr_spi_handshake(nfc_device *pnd)
     
     if (!p70_irq_wait(INT_MAX))
     {
-        printf("%s(%d): Timeout waiting for p70 irq:", __FILE__, __LINE__);
-        return NFC_EIO;
+        //printf("%s(%d): Timeout waiting for p70 irq:", __FILE__, __LINE__);
+        return NFC_ETIMEOUT;
     }        
     p70_irq_reset();
     avr_spi_begin_transaction(pnd->driver_data, &pn532_avr_spi_selector);
-        printf("\n%s(%d): Reading response:", __FILE__, __LINE__);
+        //printf("\n%s(%d): Reading response:", __FILE__, __LINE__);
         uint8_t ver_buf[32];
         avr_spi_transceive_byte(pnd->driver_data, PN532_SPI_DATAREAD);
         avr_spi_receive(pnd->driver_data, ver_buf, sizeof(ver_buf), NULL, 1000);
-        for (int i = 0; i < sizeof(ver_buf); ++i)
-        {
-            printf("%02x ", ver_buf[i]);
-        }            
-        printf("%c", '\n');
+        //dump_buf(ver_buf, sizeof(ver_buf));
+        //printf("%c", '\n');
     avr_spi_end_transaction(pnd->driver_data);
 
+    printf("Handshake success!!!\n");
     return NFC_SUCCESS;
 }
 
