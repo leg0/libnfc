@@ -2,7 +2,7 @@
  * Public platform independent Near Field Communication (NFC) library
  *
  * Copyright (C) 2011 Romain Tartière
- * Copyright (C) 2011 Romuald Conty
+ * Copyright (C) 2011, 2012 Romuald Conty
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by the
@@ -127,8 +127,8 @@ typedef enum {
 struct nfc_driver {
   const char *name;
   const scan_type_enum scan_type;
-  size_t (*scan)(nfc_connstring connstrings[], const size_t connstrings_len);
-  struct nfc_device *(*open)(const nfc_connstring connstring);
+  size_t (*scan)(const nfc_context *context, nfc_connstring connstrings[], const size_t connstrings_len);
+  struct nfc_device *(*open)(const nfc_context *context, const nfc_connstring connstring);
   void (*close)(struct nfc_device *pnd);
   const char *(*strerror)(const struct nfc_device *pnd);
 
@@ -171,7 +171,9 @@ struct nfc_driver {
  * Struct which contains internal options, references, pointers, etc. used by library
  */
 struct nfc_context {
+  bool allow_autoscan;
   bool allow_intrusive_scan;
+  int  log_level;
 };
 
 nfc_context *nfc_context_new(void);
@@ -182,6 +184,7 @@ void nfc_context_free(nfc_context *context);
  * @brief NFC device information
  */
 struct nfc_device {
+  nfc_context *context;
   const struct nfc_driver *driver;
   void *driver_data;
   void *chip_data;
@@ -205,8 +208,10 @@ struct nfc_device {
   int     last_error;
 };
 
-nfc_device *nfc_device_new(const nfc_connstring connstring);
+nfc_device *nfc_device_new(const nfc_context *context, const nfc_connstring connstring);
 void        nfc_device_free(nfc_device *dev);
+
+void string_as_boolean(const char* s, bool *value);
 
 void iso14443_cascade_uid(const uint8_t abtUID[], const size_t szUID, uint8_t *pbtCascadedUID, size_t *pszCascadedUID);
 

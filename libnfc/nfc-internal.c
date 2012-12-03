@@ -24,20 +24,35 @@
 
 #include <nfc/nfc.h>
 #include "nfc-internal.h"
+#include "conf.h"
 
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
-static bool
-string_as_boolean(const char* s)
+#define LOG_GROUP    NFC_LOG_GROUP_GENERAL
+#define LOG_CATEGORY "libnfc.general"
+
+void 
+string_as_boolean(const char* s, bool *value)
 {
-  if ((s) && (
-    (strcmp(s, "yes") == 0) ||
-    (strcmp(s, "true") == 0) ||
-    (strcmp(s, "1") == 0))) {
-    return true;
+  if (s) {
+    if (!(*value)) {
+      if ( (strcmp(s, "yes") == 0) ||
+           (strcmp(s, "true") == 0) ||
+           (strcmp(s, "1") == 0) ) {
+           *value = true;
+           return;
+      }
+    } else {
+      if ( (strcmp(s, "no") == 0) ||
+           (strcmp(s, "false") == 0) ||
+           (strcmp(s, "0") == 0) ) {
+           *value = false;
+           return;
+      }
+    }
   }
-  return false;
 }
 
 nfc_context *
@@ -49,11 +64,33 @@ nfc_context_new(void)
     err(EXIT_FAILURE, "nfc_context_new: malloc");
   }
 
+  // Set default context values
+  res->allow_autoscan = true;
+  res->allow_intrusive_scan = false;
+#ifdef DEBUG
+  res->log_level = 3;
+#else
+  res->log_level = 1;
+#endif
+
+  // Load options from configuration file (ie. /etc/nfc/libnfc.conf)
+  conf_load(res);
+
+  // Environment variables
   // Load "intrusive scan" option
-  // XXX: Load this option from configuration file too ?
   char *envvar = getenv("LIBNFC_INTRUSIVE_SCAN");
-  res->allow_intrusive_scan = string_as_boolean(envvar);
-  log_put ("libnfc", NFC_PRIORITY_DEBUG, "allow_intrusive_scan is set to %s", (res->allow_intrusive_scan)?"true":"false");
+  string_as_boolean(envvar, &(res->allow_intrusive_scan));
+
+  // log level
+  envvar = getenv("LIBNFC_LOG_LEVEL");
+  if (envvar) {
+    res->log_level = atoi(envvar);
+  }
+
+  // Debug context state
+  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_NONE,  "log_level is set to %"PRIu32, res->log_level);
+  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "allow_autoscan is set to %s", (res->allow_autoscan)?"true":"false");
+  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "allow_intrusive_scan is set to %s", (res->allow_intrusive_scan)?"true":"false");
   return res;
 }
 

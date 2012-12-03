@@ -84,6 +84,7 @@
 #include "drivers.h"
 
 #define LOG_CATEGORY "libnfc.general"
+#define LOG_GROUP    NFC_LOG_GROUP_GENERAL
 
 const struct nfc_driver *nfc_drivers[] = {
 #  if defined (DRIVER_PN53X_USB_ENABLED)
@@ -113,25 +114,29 @@ const struct nfc_driver *nfc_drivers[] = {
 /** @ingroup lib
  * @brief Initialize libnfc.
  * This function must be called before calling any other libnfc function
- * @param context Optional output location for context pointer
+ * @param context Output location for nfc_context
  */
 void
-nfc_init(nfc_context *context)
+nfc_init(nfc_context **context)
 {
-  (void) context;
-  log_init();
+  if (!context) {
+    printf("Error: NULL context is not supported anymore, please fix your code.\n");
+    exit(EXIT_FAILURE);
+  }
+  *context = nfc_context_new();
+  log_init(*context);
 }
 
 /** @ingroup lib
  * @brief Deinitialize libnfc.
  * Should be called after closing all open devices and before your application terminates.
- *@param context The context to deinitialize
+ * @param context The context to deinitialize
  */
 void
 nfc_exit(nfc_context *context)
 {
-  if(context) nfc_context_free(context);
-  log_fini();
+  nfc_context_free(context);
+  log_exit();
 }
 
 /** @ingroup dev
@@ -187,13 +192,11 @@ nfc_get_default_device(nfc_connstring *connstring)
 nfc_device *
 nfc_open(nfc_context *context, const nfc_connstring connstring)
 {
-  (void) context;
   nfc_device *pnd = NULL;
 
   nfc_connstring ncs;
   if (connstring == NULL) {
     if (!nfc_get_default_device(&ncs)) {
-      log_fini();
       return NULL;
     }
   } else {
@@ -213,7 +216,7 @@ nfc_open(nfc_context *context, const nfc_connstring connstring)
       }
     }
 
-    pnd = ndr->open(ncs);
+    pnd = ndr->open(context, ncs);
     // Test if the opening was successful
     if (pnd == NULL) {
       if (0 == strncmp("usb", ncs, strlen("usb"))) {
@@ -221,19 +224,16 @@ nfc_open(nfc_context *context, const nfc_connstring connstring)
         pndr++;
         continue;
       }
-      log_put(LOG_CATEGORY, NFC_PRIORITY_TRACE, "Unable to open \"%s\".", ncs);
-      log_fini();
+      log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Unable to open \"%s\".", ncs);
       return pnd;
     }
 
-    log_put(LOG_CATEGORY, NFC_PRIORITY_TRACE, "\"%s\" (%s) has been claimed.", pnd->name, pnd->connstring);
-    log_fini();
+    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "\"%s\" (%s) has been claimed.", pnd->name, pnd->connstring);
     return pnd;
   }
 
   // Too bad, no driver can decode connstring
-  log_put(LOG_CATEGORY, NFC_PRIORITY_TRACE, "No driver available to handle \"%s\".", ncs);
-  log_fini();
+  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "No driver available to handle \"%s\".", ncs);
   return NULL;
 }
 
@@ -270,23 +270,29 @@ nfc_list_devices(nfc_context *context, nfc_connstring connstrings[], const size_
   const struct nfc_driver *ndr;
   const struct nfc_driver **pndr = nfc_drivers;
 
-  if (!context) context = nfc_context_new(); // Should we support NULL context ?
-  // FIXME: Load device(s) from configuration file(s)
-
-  while ((ndr = *pndr)) {
-    size_t _device_found = 0;
-    if((ndr->scan_type == NOT_INTRUSIVE) || ((context->allow_intrusive_scan) && (ndr->scan_type == INTRUSIVE))) {
-      _device_found = ndr->scan(connstrings + (device_found), connstrings_len - (device_found));
-      log_put(LOG_CATEGORY, NFC_PRIORITY_TRACE, "%ld device(s) found using %s driver", (unsigned long) _device_found, ndr->name);
-      if (_device_found > 0) {
-        device_found += _device_found;
-        if (device_found == connstrings_len)
-          break;
-      }
-    } // scan_type is INTRUSIVE but not allowed or NOT_AVAILABLE
-    pndr++;
+  if (!context) {
+    printf ("NULL context is not supported anymore! Please fix your code.");
   }
-  log_fini();
+
+  // TODO Load manually configured devices (from config file and env variables)
+
+  // Device auto-detection
+  if (context->allow_autoscan) {
+    while ((ndr = *pndr)) {
+      size_t _device_found = 0;
+      if((ndr->scan_type == NOT_INTRUSIVE) || ((context->allow_intrusive_scan) && (ndr->scan_type == INTRUSIVE))) {
+        _device_found = ndr->scan(context, connstrings + (device_found), connstrings_len - (device_found));
+        log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "%ld device(s) found using %s driver", (unsigned long) _device_found, ndr->name);
+        if (_device_found > 0) {
+          device_found += _device_found;
+          if (device_found == connstrings_len)
+            break;
+        }
+      } // scan_type is INTRUSIVE but not allowed or NOT_AVAILABLE
+      pndr++;
+    }
+  }
+
   return device_found;
 }
 
@@ -618,7 +624,7 @@ nfc_initiator_deselect_target(nfc_device *pnd)
  * @param pnd \a nfc_device struct pointer that represents currently used device
  * @param pbtTx contains a byte array of the frame that needs to be transmitted.
  * @param szTx contains the length in bytes.
- * @param[out] pbtRx response from the tags
+ * @param[out] pbtRx response from the target
  * @param szRx size of \a pbtRx (Will return NFC_EOVFLOW if RX exceeds this size)
  * @param timeout in milliseconds
  *
@@ -672,7 +678,8 @@ nfc_initiator_transceive_bytes(nfc_device *pnd, const uint8_t *pbtTx, const size
  * compliant parity bits you better can use the
  * nfc_initiator_transceive_bytes() function.
  *
- * @param[out] pbtRx response from the tag
+ * @param[out] pbtRx response from the target
+ * @param szRx size of \a pbtRx (Will return NFC_EOVFLOW if RX exceeds this size)
  * @param[out] pbtRxPar parameter contains a byte array of the corresponding parity bits
  *
  * The NFC device (configured as \e initiator) will transmit low-level messages
@@ -683,15 +690,24 @@ nfc_initiator_transceive_bytes(nfc_device *pnd, const uint8_t *pbtTx, const size
  * CRC bytes. Using this feature you are able to simulate these frames.
  */
 int
-nfc_initiator_transceive_bits(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTxBits, const uint8_t *pbtTxPar,
-                              uint8_t *pbtRx, uint8_t *pbtRxPar)
+nfc_initiator_transceive_bits(nfc_device *pnd, 
+                              const uint8_t *pbtTx, const size_t szTxBits, const uint8_t *pbtTxPar,
+                              uint8_t *pbtRx, const size_t szRx,
+                              uint8_t *pbtRxPar)
 {
+  (void)szRx;
   HAL(initiator_transceive_bits, pnd, pbtTx, szTxBits, pbtTxPar, pbtRx, pbtRxPar);
 }
 
 /** @ingroup initiator
  * @brief Send data to target then retrieve data from target
  * @return Returns received bytes count on success, otherwise returns libnfc's error code.
+ *
+ * @param pnd \a nfc_device struct pointer that represents currently used device
+ * @param pbtTx contains a byte array of the frame that needs to be transmitted.
+ * @param szTx contains the length in bytes.
+ * @param[out] pbtRx response from the target
+ * @param szRx size of \a pbtRx (Will return NFC_EOVFLOW if RX exceeds this size)
  *
  * This function is similar to nfc_initiator_transceive_bytes() with the following differences:
  * - A precise cycles counter will indicate the number of cycles between emission & reception of frames.
@@ -710,7 +726,10 @@ nfc_initiator_transceive_bits(nfc_device *pnd, const uint8_t *pbtTx, const size_
  * @warning The configuration option \a NP_HANDLE_PARITY must be set to \c true (the default value).
  */
 int
-nfc_initiator_transceive_bytes_timed(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTx, uint8_t *pbtRx, const size_t szRx, uint32_t *cycles)
+nfc_initiator_transceive_bytes_timed(nfc_device *pnd, 
+                                     const uint8_t *pbtTx, const size_t szTx, 
+                                     uint8_t *pbtRx, const size_t szRx,
+                                     uint32_t *cycles)
 {
   HAL(initiator_transceive_bytes_timed, pnd, pbtTx, szTx, pbtRx, szRx, cycles);
 }
@@ -751,9 +770,13 @@ nfc_initiator_target_is_present(nfc_device *pnd, const nfc_target nt)
  * @warning The configuration option \a NP_HANDLE_PARITY must be set to \c true (the default value).
  */
 int
-nfc_initiator_transceive_bits_timed(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTxBits, const uint8_t *pbtTxPar,
-                                    uint8_t *pbtRx, uint8_t *pbtRxPar, uint32_t *cycles)
+nfc_initiator_transceive_bits_timed(nfc_device *pnd, 
+                                    const uint8_t *pbtTx, const size_t szTxBits, const uint8_t *pbtTxPar,
+                                    uint8_t *pbtRx, const size_t szRx, 
+                                    uint8_t *pbtRxPar, 
+                                    uint32_t *cycles)
 {
+  (void)szRx;
   HAL(initiator_transceive_bits_timed, pnd, pbtTx, szTxBits, pbtTxPar, pbtRx, pbtRxPar, cycles);
 }
 
@@ -946,6 +969,7 @@ static struct sErrorMessage {
   { NFC_EOPABORTED, "Operation Aborted" },
   { NFC_ENOTIMPL, "Not (yet) Implemented" },
   { NFC_ETGRELEASED, "Target Released" },
+  { NFC_EMFCAUTHFAIL, "Mifare Authentication Failed" },
   { NFC_ERFTRANS, "RF Transmission Error" },
   { NFC_ECHIP, "Device's Internal Chip Error" },
 };
@@ -1074,11 +1098,11 @@ nfc_device_get_supported_baud_rate(nfc_device *pnd, const nfc_modulation_type nm
 const char *
 nfc_version(void)
 {
-#ifdef SVN_REVISION
-  return PACKAGE_VERSION " (r" SVN_REVISION ")";
+#ifdef GIT_REVISION
+  return GIT_REVISION;
 #else
   return PACKAGE_VERSION;
-#endif // SVN_REVISION
+#endif // GIT_REVISION
 }
 
 /** @ingroup misc

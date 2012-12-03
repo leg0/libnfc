@@ -7,10 +7,10 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AC_CONFIG_HEADER(config.h)
 
-# SVN revison
-define([svn_revision], esyscmd([sh -c "svnversion -n"]))
-SVN_REVISION=svn_revision
-AC_DEFINE_UNQUOTED([SVN_REVISION], ["$SVN_REVISION"], [SVN revision])
+# GIT revison
+define([git_revision], esyscmd([sh -c "git describe"]))
+GIT_REVISION=git_revision
+AC_DEFINE_UNQUOTED([GIT_REVISION], ["$GIT_REVISION"], [GIT revision])
 
 AM_INIT_AUTOMAKE
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
@@ -69,16 +69,27 @@ AC_TYPE_OFF_T
 LIBNFC_CFLAGS='-I$(top_srcdir)/libnfc -I$(top_builddir)/include -I$(top_srcdir)/include'
 AC_SUBST(LIBNFC_CFLAGS)
 
-# Debug support (default:no)
-AC_ARG_ENABLE([debug],AS_HELP_STRING([--enable-debug],[Enable debug output]),[enable_debug=$enableval],[enable_debug="no"])
+# Log support (default:yes)
+AC_ARG_ENABLE([log],AS_HELP_STRING([--disable-log],[Disable any logs]),[enable_log=$enableval],[enable_log="yes"])
+AC_MSG_CHECKING(for log flag)
+AC_MSG_RESULT($enable_log)
+AM_CONDITIONAL([WITH_LOG], [test "$enable_log" != "no"])
  
+if test x"$enable_log" = "xyes"
+then
+  AC_DEFINE([LOG], [1], [Enable log])
+fi
+
+# Debug support (default:no)
+AC_ARG_ENABLE([debug],AS_HELP_STRING([--enable-debug],[Enable debug mode]),[enable_debug=$enableval],[enable_debug="no"])
 AC_MSG_CHECKING(for debug flag)
 AC_MSG_RESULT($enable_debug)
 AM_CONDITIONAL([WITH_DEBUG], [test "$enable_debug" != "no"])
  
 if test x"$enable_debug" = "xyes"
 then
-  CFLAGS="$CFLAGS -g -DDEBUG -O0 -ggdb"
+  AC_DEFINE([DEBUG], [1], [Enable debug flag])
+  CFLAGS="$CFLAGS -g -O0 -ggdb"
 fi
 
 # Handle --with-drivers option

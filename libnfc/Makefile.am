@@ -4,6 +4,7 @@ SUBDIRS = chips buses drivers .
 AM_CPPFLAGS = $(all_includes) $(LIBNFC_CFLAGS)
 
 noinst_HEADERS = \
+		 conf.h \
 		 drivers.h \
 		 iso7816.h \
 		 log.h \
@@ -13,7 +14,9 @@ noinst_HEADERS = \
 
 lib_LTLIBRARIES = libnfc.la
 libnfc_la_SOURCES = \
+		    conf.c \
 		    iso14443-subr.c \
+		    log.c \
 		    mirror-subr.c \
 		    nfc.c \
 		    nfc-device.c \
@@ -38,7 +41,7 @@ if LIBUSB_ENABLED
   libnfc_la_LIBADD  += @libusb_LIBS@
 endif
 
-if WITH_DEBUG
+if WITH_LOG
   libnfc_la_SOURCES += log-printf.c
 endif
 
