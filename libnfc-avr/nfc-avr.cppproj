@@ -42,6 +42,7 @@
             <Value>DEVICE_NAME_LENGTH=64</Value>
             <Value>__ASSERT_USE_STDERR</Value>
             <Value>F_CPU=16000000</Value>
+            <Value>EXIT_FAILURE=1</Value>
           </ListValues>
         </avrgcc.compiler.symbols.DefSymbols>
         <avrgcc.compiler.directories.IncludePaths>
@@ -197,6 +198,14 @@
     <Compile Include="..\libnfc\nfc-device.c">
       <SubType>compile</SubType>
       <Link>nfc-device.c</Link>
+    </Compile>
+    <Compile Include="..\libnfc\conf.c">
+      <SubType>compile</SubType>
+      <Link>conf.c</Link>
+    </Compile>
+    <Compile Include="..\libnfc\log.c">
+      <SubType>compile</SubType>
+      <Link>log.c</Link>
     </Compile>
     <None Include="..\libnfc\nfc-emulation.c">
       <SubType>compile</SubType>

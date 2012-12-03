@@ -72,7 +72,7 @@ __attribute__((format(printf, 4, 5)))
 
 #else
 // No logging
-#define log_init() ((void) 0)
+#define log_init(x) ((void) 0)
 #define log_exit() ((void) 0)
 #define log_put(category, priority, format, ...) do {} while (0)
 
