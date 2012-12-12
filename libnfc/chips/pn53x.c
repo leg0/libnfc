@@ -28,7 +28,12 @@
 #  include "config.h"
 #endif // HAVE_CONFIG_H
 
-#include <alloca.h>
+#if HAVE_ALLOCA_IN_ALLOCA_H
+    #include <alloca.h>
+#elif HAVE_ALLOCA_IN_MALLOC_H
+    #include <malloc.h>
+#endif
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

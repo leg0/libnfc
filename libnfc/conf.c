@@ -17,12 +17,7 @@
 
 #include "conf.h"
 
-#if defined(__AVR__)
-void conf_load(nfc_context *context)
-{
-    // NOP
-}    
-#else
+#if USE_CONF
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
@@ -140,4 +135,9 @@ main(int argc, char *argv[])
   }
 }
 */
+#else // USE_CONF
+void conf_load(nfc_context *context)
+{
+    // NOP
+}
 #endif

@@ -102,7 +102,7 @@ __attribute__((format(printf, 4, 5)))
     log_put (group, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "%s", __acBuf); \
   } while (0);
 #  else
-#    define LOG_HEX(pcTag, pbtData, szBytes) do { \
+#    define LOG_HEX(group, pcTag, pbtData, szBytes) do { \
     (void) pcTag; \
     (void) pbtData; \
     (void) szBytes; \
