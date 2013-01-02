@@ -36,7 +36,6 @@
 #define LIBNFC_CONFFILE        LIBNFC_SYSCONFDIR"/libnfc.conf"
 #define LIBNFC_DEVICECONFDIR   LIBNFC_SYSCONFDIR"/devices.d"
 
-#if USE_CONF
 static bool
 conf_parse_file(const char *filename, void (*conf_keyvalue)(void *data, const char *key, const char *value), void *data)
 {
