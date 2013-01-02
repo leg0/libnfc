@@ -31,11 +31,17 @@
 int
 nfc_emulate_target(nfc_device *pnd, struct nfc_emulator *emulator)
 {
+    return nfc_emulate_target_timeout(pnd, emulator, 0);
+}
+
+int
+nfc_emulate_target_timeout(nfc_device *pnd, struct nfc_emulator *emulator, int timeout)
+{
   uint8_t abtRx[ISO7816_SHORT_R_APDU_MAX_LEN];
   uint8_t abtTx[ISO7816_SHORT_C_APDU_MAX_LEN];
 
   int res;
-  if ((res = nfc_target_init(pnd, emulator->target, abtRx, sizeof(abtRx), 0)) < 0) {
+  if ((res = nfc_target_init(pnd, emulator->target, abtRx, sizeof(abtRx), timeout)) < 0) {
     return res;
   }
 
@@ -44,12 +50,12 @@ nfc_emulate_target(nfc_device *pnd, struct nfc_emulator *emulator)
   while (io_res >= 0) {
     io_res = emulator->state_machine->io(emulator, abtRx, szRx, abtTx, sizeof(abtTx));
     if (io_res > 0) {
-      if ((res = nfc_target_send_bytes(pnd, abtTx, io_res, 0)) < 0) {
+      if ((res = nfc_target_send_bytes(pnd, abtTx, io_res, timeout)) < 0) {
         return res;
       }
     }
     if (io_res >= 0) {
-      if ((res = nfc_target_receive_bytes(pnd, abtRx, sizeof(abtRx), 0)) < 0) {
+      if ((res = nfc_target_receive_bytes(pnd, abtRx, sizeof(abtRx), timeout)) < 0) {
         return res;
       }
       szRx = res;
