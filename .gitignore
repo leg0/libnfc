@@ -121,3 +121,12 @@ utils/nfc-mfultralight
 utils/nfc-read-forum-tag3
 utils/nfc-relay-picc
 utils/nfc-scan-device
+*.a
+*.o
+*.d
+*.elf
+*.map
+.svn
+makedep.mk
+*.atsuo
+contrib/avr/avr-cpp-lib

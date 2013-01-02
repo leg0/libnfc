@@ -53,6 +53,10 @@
 #    include "drivers/pn532_uart.h"
 #  endif /* DRIVER_PN532_UART_ENABLED */
 
+#  if defined (DRIVER_PN53X_AVR_SPI_ENABLED)
+#    include "drivers/pn53x_avr_spi.h"
+#  endif /* DRIVER_PN53X_AVR_SPI_ENABLED */
+
 #  define DRIVERS_MAX_DEVICES         16
 
 extern const struct nfc_driver *nfc_drivers[];

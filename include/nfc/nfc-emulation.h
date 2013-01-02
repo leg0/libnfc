@@ -26,7 +26,9 @@
 #ifndef __NFC_EMULATION_H__
 #define __NFC_EMULATION_H__
 
+#if HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
 #include <nfc/nfc.h>
 
 #ifdef __cplusplus

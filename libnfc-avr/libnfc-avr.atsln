@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Atmel Studio Solution File, Format Version 11.00
+Project("{E66E83B9-2572-4076-B26E-6BE79FF3018A}") = "nfc-avr", "nfc-avr.cppproj", "{B47ADFAD-0B1C-49C7-B045-FDEB150505B7}"
+EndProject
+Project("{E66E83B9-2572-4076-B26E-6BE79FF3018A}") = "nfc-avr-read-forum-tag3", "..\nfc-avr-read-forum-tag3\nfc-avr-read-forum-tag3.cppproj", "{B2532C98-26F9-4BB9-BED8-E497215EC05E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B47ADFAD-0B1C-49C7-B045-FDEB150505B7} = {B47ADFAD-0B1C-49C7-B045-FDEB150505B7}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|AVR = Debug|AVR
+		Release|AVR = Release|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B47ADFAD-0B1C-49C7-B045-FDEB150505B7}.Debug|AVR.ActiveCfg = Debug|AVR
+		{B47ADFAD-0B1C-49C7-B045-FDEB150505B7}.Debug|AVR.Build.0 = Debug|AVR
+		{B47ADFAD-0B1C-49C7-B045-FDEB150505B7}.Release|AVR.ActiveCfg = Release|AVR
+		{B47ADFAD-0B1C-49C7-B045-FDEB150505B7}.Release|AVR.Build.0 = Release|AVR
+		{B2532C98-26F9-4BB9-BED8-E497215EC05E}.Debug|AVR.ActiveCfg = Debug|AVR
+		{B2532C98-26F9-4BB9-BED8-E497215EC05E}.Debug|AVR.Build.0 = Debug|AVR
+		{B2532C98-26F9-4BB9-BED8-E497215EC05E}.Release|AVR.ActiveCfg = Release|AVR
+		{B2532C98-26F9-4BB9-BED8-E497215EC05E}.Release|AVR.Build.0 = Release|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

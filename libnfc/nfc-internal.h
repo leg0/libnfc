@@ -28,7 +28,9 @@
 
 #include <stdbool.h>
 #include <err.h>
+#if HAVE_SYS_TIME_H
 #  include <sys/time.h>
+#endif
 
 #include "nfc/nfc.h"
 
@@ -71,11 +73,20 @@
  */
 
 /*
- * Initialise a buffer named buffer_name of size bytes.
+ * Initialise a buffer named buffer_name of size bytes. In small devices where
+ * RAM is scarce, the buffer allocation is deferred as long as possible. As a
+ * result care must be taken not to invoke BUFFER_INIT in a loop, otherwise a
+ * buffer overflow is quick to follow.
  */
-#define BUFFER_INIT(buffer_name, size) \
-  uint8_t buffer_name[size]; \
-  size_t __##buffer_name##_n = 0
+#if defined(__AVR__)
+#  define BUFFER_INIT(buffer_name, size) \
+    uint8_t* buffer_name = alloca(size); \
+    size_t __##buffer_name##_n = 0
+#else
+#  define BUFFER_INIT(buffer_name, size) \
+    uint8_t buffer_name[size]; \
+    size_t __##buffer_name##_n = 0
+#endif
 
 /*
  * Create a wrapper for an existing buffer.
@@ -149,7 +160,9 @@ struct nfc_driver {
   int (*idle)(struct nfc_device *pnd);
 };
 
+#if !defined(DEVICE_NAME_LENGTH)
 #  define DEVICE_NAME_LENGTH  256
+#endif
 #  define DEVICE_PORT_LENGTH  64
 
 #define MAX_USER_DEFINED_DEVICES 4

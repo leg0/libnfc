@@ -42,10 +42,14 @@ typedef struct nfc_context nfc_context;
  */
 typedef struct nfc_device nfc_device;
 
+#if !defined(LIBNFC_MAX_CONNSTRING_LENGTH)
+#  define LIBNFC_MAX_CONNSTRING_LENGTH 1024
+#endif
+
 /**
  * Connection string
  */
-typedef char nfc_connstring[1024];
+typedef char nfc_connstring[LIBNFC_MAX_CONNSTRING_LENGTH];
 
 /**
  * Properties

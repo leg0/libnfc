@@ -28,6 +28,13 @@
 #  include "config.h"
 #endif // HAVE_CONFIG_H
 
+#if HAVE_ALLOCA_IN_ALLOCA_H
+    #include <alloca.h>
+#elif HAVE_ALLOCA_IN_MALLOC_H
+    #include <malloc.h>
+#endif
+
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -146,7 +153,7 @@ pn53x_reset_settings(struct nfc_device *pnd)
 int
 pn53x_transceive(struct nfc_device *pnd, const uint8_t *pbtTx, const size_t szTx, uint8_t *pbtRx, const size_t szRxLen, int timeout)
 {
-  int res = 0;
+  int res = 0;  
   if (CHIP_DATA(pnd)->wb_trigged) {
     if ((res = pn53x_writeback_register(pnd)) < 0) {
       return res;
@@ -164,17 +171,16 @@ pn53x_transceive(struct nfc_device *pnd, const uint8_t *pbtTx, const size_t szTx
     log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "Invalid timeout value: %d", timeout);
   }
 
-  uint8_t  abtRx[PN53x_EXTENDED_FRAME__DATA_MAX_LEN];
-  size_t  szRx = sizeof(abtRx);
-
+  size_t szRx;
   // Check if receiving buffers are available, if not, replace them
   if (szRxLen == 0 || !pbtRx) {
-    pbtRx = abtRx;
+    szRx = PN53x_EXTENDED_FRAME__DATA_MAX_LEN;
+    pbtRx = alloca(szRx);
   } else {
     szRx = szRxLen;
   }
 
-  // Call the send/receice callback functions of the current driver
+  // Call the send/receive callback functions of the current driver
   if ((res = CHIP_DATA(pnd)->io->send(pnd, pbtTx, szTx, timeout)) < 0) {
     return res;
   }
@@ -643,7 +649,7 @@ pn53x_writeback_register(struct nfc_device *pnd)
 {
   int res = 0;
   // TODO Check at each step (ReadRegister, WriteRegister) if we didn't exceed max supported frame length
-  BUFFER_INIT(abtReadRegisterCmd, PN53x_EXTENDED_FRAME__DATA_MAX_LEN);
+  BUFFER_INIT(abtReadRegisterCmd, 1 + PN53X_CACHE_REGISTER_SIZE*3);
   BUFFER_APPEND(abtReadRegisterCmd, ReadRegister);
 
   // First step, it looks for registers to be read before applying the requested mask
@@ -659,8 +665,8 @@ pn53x_writeback_register(struct nfc_device *pnd)
 
   if (BUFFER_SIZE(abtReadRegisterCmd) > 1) {
     // It needs to read some registers
-    uint8_t abtRes[PN53x_EXTENDED_FRAME__DATA_MAX_LEN];
-    size_t szRes = sizeof(abtRes);
+    const size_t szRes = PN53x_EXTENDED_FRAME__OVERHEAD + PN53X_CACHE_REGISTER_SIZE;
+    uint8_t abtRes[szRes];
     // It transceives the previously constructed ReadRegister command
     if ((res = pn53x_transceive(pnd, abtReadRegisterCmd, BUFFER_SIZE(abtReadRegisterCmd), abtRes, szRes, -1)) < 0) {
       return res;
@@ -684,7 +690,7 @@ pn53x_writeback_register(struct nfc_device *pnd)
     }
   }
   // Now, the writeback-cache only has masks with 0xff, we can start to WriteRegister
-  BUFFER_INIT(abtWriteRegisterCmd, PN53x_EXTENDED_FRAME__DATA_MAX_LEN);
+  BUFFER_ALIAS(abtWriteRegisterCmd, abtReadRegisterCmd);
   BUFFER_APPEND(abtWriteRegisterCmd, WriteRegister);
   for (size_t n = 0; n < PN53X_CACHE_REGISTER_SIZE; n++) {
     if (CHIP_DATA(pnd)->wb_mask[n] == 0xff) {
@@ -754,7 +760,7 @@ pn53x_decode_firmware_version(struct nfc_device *pnd)
       pnd->btSupportByte = abtFw[3];
       break;
     case PN53X:
-      // Could not happend
+      // Could not happen
       break;
   }
   return NFC_SUCCESS;
@@ -993,8 +999,17 @@ pn53x_check_communication(struct nfc_device *pnd)
   size_t szRx = sizeof(abtRx);
   int res = 0;
 
-  if ((res = pn53x_transceive(pnd, abtCmd, sizeof(abtCmd), abtRx, szRx, 500)) < 0)
+  if ((res = pn53x_transceive(pnd, abtCmd, sizeof(abtCmd), abtRx, szRx, 500)) < 0) {
+      printf("pn53x_check_communication: Transceive failed: %d\n", res);
     return res;
+  }    
+  
+  printf("%s(%d): Received: ", __FILE__, __LINE__);
+  for (int i = 0; i < sizeof(abtRx); ++i)
+  {
+      printf("%02X ", abtRx[i]);
+  }      
+  puts("");
   szRx = (size_t) res;
   if ((sizeof(abtExpectedRx) == szRx) && (0 == memcmp(abtRx, abtExpectedRx, sizeof(abtExpectedRx))))
     return NFC_SUCCESS;
@@ -1016,7 +1031,6 @@ pn53x_initiator_init(struct nfc_device *pnd)
   // Configure the PN53X to be an Initiator or Reader/Writer
   if ((res = pn53x_write_register(pnd, PN53X_REG_CIU_Control, SYMBOL_INITIATOR, 0x10)) < 0)
     return res;
-
   CHIP_DATA(pnd)->operating_mode = INITIATOR;
   return NFC_SUCCESS;
 }
@@ -1403,14 +1417,15 @@ static uint32_t __pn53x_get_timer(struct nfc_device *pnd, const uint8_t last_cmd
     off = 1;
   }
   // Read timer
-  BUFFER_INIT(abtReadRegisterCmd, PN53x_EXTENDED_FRAME__DATA_MAX_LEN);
+  BUFFER_INIT(abtReadRegisterCmd, 5);
   BUFFER_APPEND(abtReadRegisterCmd, ReadRegister);
   BUFFER_APPEND(abtReadRegisterCmd, PN53X_REG_CIU_TCounterVal_hi  >> 8);
   BUFFER_APPEND(abtReadRegisterCmd, PN53X_REG_CIU_TCounterVal_hi & 0xff);
   BUFFER_APPEND(abtReadRegisterCmd, PN53X_REG_CIU_TCounterVal_lo  >> 8);
   BUFFER_APPEND(abtReadRegisterCmd, PN53X_REG_CIU_TCounterVal_lo & 0xff);
-  uint8_t abtRes[PN53x_EXTENDED_FRAME__DATA_MAX_LEN];
-  size_t szRes = sizeof(abtRes);
+  assert(BUFFER_SIZE(abtReadRegisterCmd) == 5);
+  const size_t szRes = PN53x_EXTENDED_FRAME__OVERHEAD + 2;
+  uint8_t abtRes[szRes];
   // Let's send the previously constructed ReadRegister command
   if (pn53x_transceive(pnd, abtReadRegisterCmd, BUFFER_SIZE(abtReadRegisterCmd), abtRes, szRes, -1) < 0) {
     return false;
@@ -1523,8 +1538,9 @@ pn53x_initiator_transceive_bits_timed(struct nfc_device *pnd, const uint8_t *pbt
     // PN533 prepends its answer by a status byte
     off = 1;
   }
+  BUFFER_INIT(abtReadRegisterCmd, PN53x_EXTENDED_FRAME__DATA_MAX_LEN);
   while (1) {
-    BUFFER_INIT(abtReadRegisterCmd, PN53x_EXTENDED_FRAME__DATA_MAX_LEN);
+    BUFFER_CLEAR(abtReadRegisterCmd);
     BUFFER_APPEND(abtReadRegisterCmd, ReadRegister);
     for (i = 0; i < sz; i++) {
       BUFFER_APPEND(abtReadRegisterCmd, PN53X_REG_CIU_FIFOData  >> 8);
@@ -1618,8 +1634,9 @@ pn53x_initiator_transceive_bytes_timed(struct nfc_device *pnd, const uint8_t *pb
     // PN533 prepends its answer by a status byte
     off = 1;
   }
+  BUFFER_INIT(abtReadRegisterCmd, PN53x_EXTENDED_FRAME__DATA_MAX_LEN);
   while (1) {
-    BUFFER_INIT(abtReadRegisterCmd, PN53x_EXTENDED_FRAME__DATA_MAX_LEN);
+    BUFFER_CLEAR(abtReadRegisterCmd);
     BUFFER_APPEND(abtReadRegisterCmd, ReadRegister);
     for (i = 0; i < sz; i++) {
       BUFFER_APPEND(abtReadRegisterCmd, PN53X_REG_CIU_FIFOData  >> 8);
@@ -1627,8 +1644,8 @@ pn53x_initiator_transceive_bytes_timed(struct nfc_device *pnd, const uint8_t *pb
     }
     BUFFER_APPEND(abtReadRegisterCmd, PN53X_REG_CIU_FIFOLevel  >> 8);
     BUFFER_APPEND(abtReadRegisterCmd, PN53X_REG_CIU_FIFOLevel & 0xff);
-    uint8_t abtRes[PN53x_EXTENDED_FRAME__DATA_MAX_LEN];
-    size_t szRes = sizeof(abtRes);
+    const size_t szRes = PN53x_EXTENDED_FRAME__OVERHEAD + sz + 1;
+    uint8_t abtRes[szRes];
     // Let's send the previously constructed ReadRegister command
     if ((res = pn53x_transceive(pnd, abtReadRegisterCmd, BUFFER_SIZE(abtReadRegisterCmd), abtRes, szRes, -1)) < 0) {
       return res;
@@ -2235,7 +2252,7 @@ pn53x_SetParameters(struct nfc_device *pnd, const uint8_t ui8Value)
 int
 pn532_SAMConfiguration(struct nfc_device *pnd, const pn532_sam_mode sam_mode, int timeout)
 {
-  uint8_t abtCmd[] = { SAMConfiguration, sam_mode, 0x00, 0x00 };
+  uint8_t abtCmd[] = { SAMConfiguration, sam_mode, 0x00, 0x01 };
   size_t szCmd = sizeof(abtCmd);
 
   if (CHIP_DATA(pnd)->type != PN532) {
@@ -2932,6 +2949,9 @@ pn53x_get_supported_baud_rate(nfc_device *pnd, const nfc_modulation_type nmt, co
 int
 pn53x_get_information_about(nfc_device *pnd, char **pbuf)
 {
+#if defined(__AVR__)
+    return NFC_EOVFLOW;
+#else
   size_t buflen = 2048;
   *pbuf = malloc(buflen);
   char *buf = *pbuf;
@@ -3057,6 +3077,7 @@ pn53x_get_information_about(nfc_device *pnd, char **pbuf)
   buflen -= res;
 
   return NFC_SUCCESS;
+#endif
 }
 
 void

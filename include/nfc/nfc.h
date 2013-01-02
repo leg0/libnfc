@@ -28,11 +28,17 @@
 #ifndef _LIBNFC_H_
 #  define _LIBNFC_H_
 
+#if HAVE_SYS_TIME_H
 #  include <sys/time.h>
+#endif
 
 #  include <stdint.h>
 #  include <stdbool.h>
 
+#ifdef LIBNFC_STATIC
+#  define NFC_EXPORT
+#else
+/* LIBNFC_STATIC */
 #  ifdef _WIN32
 /* Windows platform */
 #    ifndef _WINDLL
@@ -55,6 +61,8 @@
 #    define NFC_EXPORT
 #  endif
 /* _WIN32 */
+#endif
+/* LIBNFC_STATIC */
 
 #  include <nfc/nfc-types.h>
 

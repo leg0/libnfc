@@ -65,11 +65,13 @@
  * The functionnality documented below allow to retreive some information in text format.
  */
 
-#ifdef HAVE_CONFIG_H
+#if HAVE_CONFIG_H
 #  include "config.h"
-#endif // HAVE_CONFIG_H
+#endif
 
+#if HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -103,6 +105,9 @@ const struct nfc_driver *nfc_drivers[] = {
 #  if defined (DRIVER_ARYGON_ENABLED)
   &arygon_driver,
 #  endif /* DRIVER_ARYGON_ENABLED */
+#  if defined(DRIVER_PN53X_AVR_SPI_ENABLED)
+  &pn53x_avr_spi_driver,
+#  endif
   NULL
 };
 
@@ -1095,6 +1100,7 @@ nfc_device_get_information_about(nfc_device *pnd, char **buf)
   HAL(device_get_information_about, pnd, buf);
 }
 
+#if !defined(__AVR__)
 /** @ingroup string-converter
  * @brief Convert \a nfc_baud_rate value to string
  * @return Returns nfc baud rate
@@ -1178,3 +1184,5 @@ str_nfc_target(char **buf, const nfc_target nt, bool verbose)
   sprint_nfc_target(*buf, nt, verbose);
   return strlen(*buf);
 }
+
+#endif
