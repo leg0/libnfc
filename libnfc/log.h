@@ -50,7 +50,7 @@
 */
 
 //int log_priority_to_int(const char* priority);
-const char* log_priority_to_str(const int priority);
+const char *log_priority_to_str(const int priority);
 
 #if defined LOG
 
@@ -72,9 +72,9 @@ __attribute__((format(printf, 4, 5)))
 
 #else
 // No logging
-#define log_init(x) ((void) 0)
+#define log_init(nfc_context) ((void) 0)
 #define log_exit() ((void) 0)
-#define log_put(category, priority, format, ...) do {} while (0)
+#define log_put(group, category, priority, format, ...) do {} while (0)
 
 #endif // LOG
 
@@ -103,6 +103,7 @@ __attribute__((format(printf, 4, 5)))
   } while (0);
 #  else
 #    define LOG_HEX(group, pcTag, pbtData, szBytes) do { \
+    (void) group; \
     (void) pcTag; \
     (void) pbtData; \
     (void) szBytes; \

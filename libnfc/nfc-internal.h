@@ -119,9 +119,9 @@
   } while (0)
 
 typedef enum {
- NOT_INTRUSIVE,
- INTRUSIVE,
- NOT_AVAILABLE,
+  NOT_INTRUSIVE,
+  INTRUSIVE,
+  NOT_AVAILABLE,
 } scan_type_enum;
 
 struct nfc_driver {
@@ -165,6 +165,13 @@ struct nfc_driver {
 #endif
 #  define DEVICE_PORT_LENGTH  64
 
+#define MAX_USER_DEFINED_DEVICES 4
+
+struct nfc_user_defined_device {
+  char name[DEVICE_NAME_LENGTH];
+  nfc_connstring connstring;
+};
+
 /**
  * @struct nfc_context
  * @brief NFC library context
@@ -173,7 +180,9 @@ struct nfc_driver {
 struct nfc_context {
   bool allow_autoscan;
   bool allow_intrusive_scan;
-  int  log_level;
+  uint32_t  log_level;
+  struct nfc_user_defined_device user_defined_devices[MAX_USER_DEFINED_DEVICES];
+  unsigned int user_defined_device_count;
 };
 
 nfc_context *nfc_context_new(void);
@@ -184,7 +193,7 @@ void nfc_context_free(nfc_context *context);
  * @brief NFC device information
  */
 struct nfc_device {
-  nfc_context *context;
+  const nfc_context *context;
   const struct nfc_driver *driver;
   void *driver_data;
   void *chip_data;
@@ -211,7 +220,7 @@ struct nfc_device {
 nfc_device *nfc_device_new(const nfc_context *context, const nfc_connstring connstring);
 void        nfc_device_free(nfc_device *dev);
 
-void string_as_boolean(const char* s, bool *value);
+void string_as_boolean(const char *s, bool *value);
 
 void iso14443_cascade_uid(const uint8_t abtUID[], const size_t szUID, uint8_t *pbtCascadedUID, size_t *pszCascadedUID);
 

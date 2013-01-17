@@ -1,5 +1,7 @@
 SUBDIRS = \
 	devd \
+	libnfc \
+	linux \
 	udev \
 	win32
 

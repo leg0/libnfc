@@ -33,23 +33,23 @@
 #define LOG_GROUP    NFC_LOG_GROUP_GENERAL
 #define LOG_CATEGORY "libnfc.general"
 
-void 
-string_as_boolean(const char* s, bool *value)
+void
+string_as_boolean(const char *s, bool *value)
 {
   if (s) {
     if (!(*value)) {
-      if ( (strcmp(s, "yes") == 0) ||
-           (strcmp(s, "true") == 0) ||
-           (strcmp(s, "1") == 0) ) {
-           *value = true;
-           return;
+      if ((strcmp(s, "yes") == 0) ||
+          (strcmp(s, "true") == 0) ||
+          (strcmp(s, "1") == 0)) {
+        *value = true;
+        return;
       }
     } else {
-      if ( (strcmp(s, "no") == 0) ||
-           (strcmp(s, "false") == 0) ||
-           (strcmp(s, "0") == 0) ) {
-           *value = false;
-           return;
+      if ((strcmp(s, "no") == 0) ||
+          (strcmp(s, "false") == 0) ||
+          (strcmp(s, "0") == 0)) {
+        *value = false;
+        return;
       }
     }
   }
@@ -73,12 +73,27 @@ nfc_context_new(void)
   res->log_level = 1;
 #endif
 
+  // Clear user defined devices array
+  for (int i = 0; i < MAX_USER_DEFINED_DEVICES; i++) {
+    strcpy(res->user_defined_devices[i].name, "");
+    strcpy(res->user_defined_devices[i].connstring, "");
+  }
+  res->user_defined_device_count = 0;
+
+  // Load user defined device from environment variable at first
+  char *envvar = getenv("LIBNFC_DEFAULT_DEVICE");
+  if (envvar) {
+    strcpy(res->user_defined_devices[0].name, "user defined default device");
+    strcpy(res->user_defined_devices[0].connstring, envvar);
+    res->user_defined_device_count++;
+  }
+
   // Load options from configuration file (ie. /etc/nfc/libnfc.conf)
   conf_load(res);
 
   // Environment variables
   // Load "intrusive scan" option
-  char *envvar = getenv("LIBNFC_INTRUSIVE_SCAN");
+  envvar = getenv("LIBNFC_INTRUSIVE_SCAN");
   string_as_boolean(envvar, &(res->allow_intrusive_scan));
 
   // log level
@@ -87,16 +102,29 @@ nfc_context_new(void)
     res->log_level = atoi(envvar);
   }
 
+  // Initialize log before use it...
+  log_init(res);
+
   // Debug context state
+#if defined DEBUG
   log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_NONE,  "log_level is set to %"PRIu32, res->log_level);
-  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "allow_autoscan is set to %s", (res->allow_autoscan)?"true":"false");
-  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "allow_intrusive_scan is set to %s", (res->allow_intrusive_scan)?"true":"false");
+#else
+  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG,  "log_level is set to %"PRIu32, res->log_level);
+#endif
+  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "allow_autoscan is set to %s", (res->allow_autoscan) ? "true" : "false");
+  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "allow_intrusive_scan is set to %s", (res->allow_intrusive_scan) ? "true" : "false");
+
+  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "%d device(s) defined by user", res->user_defined_device_count);
+  for (uint32_t i = 0; i < res->user_defined_device_count; i++) {
+    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "  #%d name: \"%s\", connstring: \"%s\"", i, res->user_defined_devices[i].name, res->user_defined_devices[i].connstring);
+  }
   return res;
 }
 
 void
 nfc_context_free(nfc_context *context)
 {
+  log_exit();
   free(context);
 }
 
