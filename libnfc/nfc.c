@@ -103,6 +103,9 @@ const struct nfc_driver *nfc_drivers[] = {
 #  if defined (DRIVER_ARYGON_ENABLED)
   &arygon_driver,
 #  endif /* DRIVER_ARYGON_ENABLED */
+#  if defined (DRIVER_PN532_ASF_SPI_ENABLED)
+  &pn532_asf_spi_driver,
+#  endif /* DRIVER_PN532_ASF_SPI_ENABLED */
   NULL
 };
 
