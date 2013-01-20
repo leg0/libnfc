@@ -16,6 +16,9 @@
  */
 
 #include "log.h"
+
+#if defined LOG
+
 /*
 #include <stdint.h>
 #include <stdio.h>
@@ -70,3 +73,4 @@ log_priority_to_str(const int priority)
   return "unkown";
 }
 
+#endif /* LOG */

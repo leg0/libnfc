@@ -18,6 +18,8 @@
 
 #include "log.h"
 
+#if defined LOG 
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -67,3 +69,5 @@ log_put(const uint8_t group, const char *category, const uint8_t priority, const
     }
   }
 }
+
+#endif /* LOG */

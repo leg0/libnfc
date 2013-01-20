@@ -17,6 +17,8 @@
 
 #include "conf.h"
 
+#if defined LIBNFC_USE_CONF
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
@@ -168,3 +170,12 @@ conf_load(nfc_context *context)
   conf_devices_load(LIBNFC_DEVICECONFDIR, context);
 }
 
+#else /* LIBNFC_USE_CONF */
+
+void
+conf_load(nfc_context *context)
+{
+    (void)context;
+}
+
+#endif /* LIBNFC_USE_CONF */
