@@ -59,17 +59,9 @@
 
 #include <nfc/nfc.h>
 
-#include "nfc-utils.h"
+#include <nfc-utils.h>
 
 static nfc_device *pnd;
-
-static void
-print_usage(char *progname)
-{
-  fprintf(stderr, "usage: %s -o FILE\n", progname);
-  fprintf(stderr, "\nOptions:\n");
-  fprintf(stderr, "  -o     Extract NDEF message if available in FILE\n");
-}
 
 static void stop_select(int sig)
 {
@@ -159,43 +151,8 @@ main(void)
 	board_init();
 
   int ch;
-  char *ndef_output = NULL;
-  while ((ch = getopt(argc, argv, "ho:")) != -1) {
-    switch (ch) {
-      case 'h':
-        print_usage(argv[0]);
-        exit(EXIT_SUCCESS);
-        break;
-      case 'o':
-        ndef_output = optarg;
-        break;
-      case '?':
-        if (optopt == 'o')
-          fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-      default:
-        print_usage(argv[0]);
-        exit(EXIT_FAILURE);
-    }
-  }
-
-  if (ndef_output == NULL) {
-    print_usage(argv[0]);
-    exit(EXIT_FAILURE);
-  }
-  FILE *message_stream = NULL;
-  FILE *ndef_stream = NULL;
-
-  if ((strlen(ndef_output) == 1) && (ndef_output[0] == '-')) {
-    message_stream = stderr;
-    ndef_stream = stdout;
-  } else {
-    message_stream = stdout;
-    ndef_stream = fopen(ndef_output, "wb");
-    if (!ndef_stream) {
-      fprintf(stderr, "Could not open file %s.\n", ndef_output);
-      exit(EXIT_FAILURE);
-    }
-  }
+  FILE *message_stream = stderr;
+  FILE *ndef_stream = stdout;
 
   nfc_context *context;
   nfc_init(&context);
