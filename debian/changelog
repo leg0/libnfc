@@ -1,4 +1,16 @@
-libnfc (1.7.0rc1-0) unstable; urgency=low
+libnfc (1.7.0~rc2-1) unstable; urgency=low
+
+  * Upload to Debian. (Closes: #672795)
+
+ -- Nobuhiro Iwamatsu <iwamatsu@debian.org>  Mon, 21 Jan 2013 14:19:24 +0900
+
+libnfc (1.7.0~rc2-0) unstable; urgency=low
+  
+  * New upstream release
+
+ -- romuald conty <romuald@libnfc.org>  Sun, 20 Jan 2013 12:42:42 +0100
+
+libnfc (1.7.0~rc1-0) unstable; urgency=low
   
   * New upstream release
 

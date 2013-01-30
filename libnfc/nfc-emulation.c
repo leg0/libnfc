@@ -19,17 +19,27 @@
  */
 
 /**
-* @file nfc-emulation.c
-* @brief Provide a small API to ease emulation in libnfc
-*/
+ * @file nfc-emulation.c
+ * @brief Provide a small API to ease emulation in libnfc
+ */
 
 #include <nfc/nfc.h>
 #include <nfc/nfc-emulation.h>
 
 #include "iso7816.h"
 
+/** @ingroup emulation
+ * @brief Emulate a target
+ * @return Returns 0 on success, otherwise returns libnfc's error code (negative value).
+ *
+ * @param pnd \a nfc_device struct pointer that represents currently used device
+ * @param emulator \nfc_emulator struct point that handles input/output functions
+ *
+ * If timeout equals to 0, the function blocks indefinitely (until an error is raised or function is completed)
+ * If timeout equals to -1, the default timeout will be used
+ */
 int
-nfc_emulate_target(nfc_device *pnd, struct nfc_emulator *emulator)
+nfc_emulate_target(nfc_device *pnd, struct nfc_emulator *emulator, const int timeout)
 {
     return nfc_emulate_target_timeout(pnd, emulator, 0);
 }
@@ -63,3 +73,4 @@ nfc_emulate_target_timeout(nfc_device *pnd, struct nfc_emulator *emulator, int t
   }
   return (io_res < 0) ? io_res : 0;
 }
+

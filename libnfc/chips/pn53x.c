@@ -1096,11 +1096,12 @@ pn53x_initiator_select_passive_target_ext(struct nfc_device *pnd,
     if ((res = pn53x_initiator_transceive_bytes(pnd, pbtInitData, szInitData, abtTargetsData, sizeof(abtTargetsData), timeout)) < 0) {
       return res;
     }
+    szTargetsData = (size_t)res;
     if (nm.nmt == NMT_ISO14443B2CT) {
       if (szTargetsData != 2)
         return 0; // Target is not ISO14443B2CT
       uint8_t abtRead[] = { 0xC4 }; // Reading UID_MSB (Read address 4)
-      if ((res = pn53x_initiator_transceive_bytes(pnd, abtRead, sizeof(abtRead), abtTargetsData + 4, sizeof(abtTargetsData) - 4, timeout) < 0)) {
+      if ((res = pn53x_initiator_transceive_bytes(pnd, abtRead, sizeof(abtRead), abtTargetsData + 4, sizeof(abtTargetsData) - 4, timeout)) < 0) {
         return res;
       }
       szTargetsData = 6; // u16 UID_LSB, u8 prod code, u8 fab code, u16 UID_MSB
@@ -1138,7 +1139,7 @@ pn53x_initiator_select_passive_target_ext(struct nfc_device *pnd,
   if (pnt) {
     pnt->nm = nm;
     // Fill the tag info struct with the values corresponding to this init modulation
-    if ((res = pn53x_decode_target_data(abtTargetsData + 1, szTargetsData - 1, CHIP_DATA(pnd)->type, nm.nmt, &(pnt->nti)) < 0)) {
+    if ((res = pn53x_decode_target_data(abtTargetsData + 1, szTargetsData - 1, CHIP_DATA(pnd)->type, nm.nmt, &(pnt->nti))) < 0) {
       return res;
     }
     pn53x_current_target_new(pnd, pnt);

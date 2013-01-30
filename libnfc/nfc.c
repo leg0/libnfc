@@ -119,10 +119,6 @@ const struct nfc_driver *nfc_drivers[] = {
 void
 nfc_init(nfc_context **context)
 {
-  if (!context) {
-    printf("Error: NULL context is not supported anymore, please fix your code.\n");
-    exit(EXIT_FAILURE);
-  }
   *context = nfc_context_new();
 }
 
@@ -190,7 +186,7 @@ nfc_open(nfc_context *context, const nfc_connstring connstring)
         continue;
       }
       log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Unable to open \"%s\".", ncs);
-      return pnd;
+      return NULL;
     }
     for (uint32_t i = 0; i > context->user_defined_device_count; i++) {
       if (strcmp(ncs, context->user_defined_devices[i].connstring) == 0) {
@@ -241,18 +237,45 @@ nfc_list_devices(nfc_context *context, nfc_connstring connstrings[], const size_
   const struct nfc_driver *ndr;
   const struct nfc_driver **pndr = nfc_drivers;
 
-  if (!context) {
-    printf("NULL context is not supported anymore! Please fix your code.\n");
-    exit(EXIT_FAILURE);
-  }
-
   // Load manually configured devices (from config file and env variables)
   // TODO From env var...
   for (uint32_t i = 0; i < context->user_defined_device_count; i++) {
-    strcpy((char *)(connstrings + device_found), context->user_defined_devices[i].connstring);
-    device_found++;
-    if (device_found >= connstrings_len)
-      return device_found;
+    if (context->user_defined_devices[i].optional) {
+      // let's make sure the device exists
+      nfc_device *pnd = NULL;
+      char *env_log_level = getenv("LIBNFC_LOG_LEVEL");
+      char *old_env_log_level = NULL;
+      // do it silently
+      if (env_log_level) {
+        if ((old_env_log_level = malloc(strlen(env_log_level) + 1)) == NULL) {
+          log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "%s", "Unable to malloc()");
+          return 0;
+        }
+        strcpy(old_env_log_level, env_log_level);
+      }
+      setenv("LIBNFC_LOG_LEVEL", "0", 1);
+      pnd = nfc_open(context, context->user_defined_devices[i].connstring);
+      if (old_env_log_level) {
+        setenv("LIBNFC_LOG_LEVEL", old_env_log_level, 1);
+        free(old_env_log_level);
+      } else {
+        unsetenv("LIBNFC_LOG_LEVEL");
+      }
+      if (pnd) {
+        nfc_close(pnd);
+        log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "User device %s found", context->user_defined_devices[i].name);
+        strcpy((char *)(connstrings + device_found), context->user_defined_devices[i].connstring);
+        device_found ++;
+        if (device_found == connstrings_len)
+          break;
+      }
+    } else {
+      // manual choice is not marked as optional so let's take it blindly
+      strcpy((char *)(connstrings + device_found), context->user_defined_devices[i].connstring);
+      device_found++;
+      if (device_found >= connstrings_len)
+        return device_found;
+    }
   }
 
   // Device auto-detection
@@ -270,8 +293,8 @@ nfc_list_devices(nfc_context *context, nfc_connstring connstrings[], const size_
       } // scan_type is INTRUSIVE but not allowed or NOT_AVAILABLE
       pndr++;
     }
-  } else if (context->user_defined_device_count) {
-    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_INFO, "Warning: %s" , "autoscan have been disabled but no other devices have bet set.");
+  } else if (context->user_defined_device_count == 0) {
+    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_INFO, "Warning: %s" , "user must specify device(s) manually when autoscan is disabled");
   }
 
   return device_found;
@@ -530,6 +553,9 @@ nfc_initiator_poll_target(nfc_device *pnd,
  * to passive communications.
  *
  * @note \a nfc_dep_info will be returned when the target was acquired successfully.
+ *
+ * If timeout equals to 0, the function blocks indefinitely (until an error is raised or function is completed)
+ * If timeout equals to -1, the default timeout will be used
  */
 int
 nfc_initiator_select_dep_target(nfc_device *pnd,
@@ -612,9 +638,6 @@ nfc_initiator_deselect_target(nfc_device *pnd)
  * The NFC device (configured as initiator) will transmit the supplied bytes (\a pbtTx) to the target.
  * It waits for the response and stores the received bytes in the \a pbtRx byte array.
  *
- * If timeout is not a null pointer, it specifies the maximum interval to wait for the function to be executed.
- * If timeout is a null pointer, the function blocks indefinitely (until an error is raised or function is completed).
- *
  * If \a NP_EASY_FRAMING option is disabled the frames will sent and received in raw mode: \e PN53x will not handle input neither output data.
  *
  * The parity bits are handled by the \e PN53x chip. The CRC can be generated automatically or handled manually.
@@ -626,6 +649,8 @@ nfc_initiator_deselect_target(nfc_device *pnd)
  *
  * @note When used with MIFARE Classic, NFC_EMFCAUTHFAIL error is returned if authentication command failed. You need to re-select the tag to operate with.
  *
+ * If timeout equals to 0, the function blocks indefinitely (until an error is raised or function is completed)
+ * If timeout equals to -1, the default timeout will be used
  */
 int
 nfc_initiator_transceive_bytes(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTx, uint8_t *pbtRx,
@@ -790,6 +815,9 @@ nfc_initiator_transceive_bits_timed(nfc_device *pnd,
  * received that is not part of the anti-collision. The RATS command for
  * example would wake up the emulator. After this is received, the send and
  * receive functions can be used.
+ *
+ * If timeout equals to 0, the function blocks indefinitely (until an error is raised or function is completed)
+ * If timeout equals to -1, the default timeout will be used
  */
 int
 nfc_target_init(nfc_device *pnd, nfc_target *pnt, uint8_t *pbtRx, const size_t szRx, int timeout)
@@ -867,8 +895,8 @@ nfc_abort_command(nfc_device *pnd)
  * This function make the NFC device (configured as \e target) send byte frames
  * (e.g. APDU responses) to the \e initiator.
  *
- * If timeout is not a null pointer, it specifies the maximum interval to wait for the function to be executed.
- * If timeout is a null pointer, the function blocks indefinitely (until an error is raised or function is completed).
+ * If timeout equals to 0, the function blocks indefinitely (until an error is raised or function is completed)
+ * If timeout equals to -1, the default timeout will be used
  */
 int
 nfc_target_send_bytes(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTx, int timeout)

@@ -425,10 +425,10 @@ main(int argc, char *argv[])
 
     if (!target_only_mode) {
       // Forward the frame to the original tag
-      if ((res = nfc_initiator_transceive_bytes(pndInitiator, abtCapdu, szCapduLen, abtRapdu, sizeof(abtRapdu), -1) < 0)) {
+      if ((res = nfc_initiator_transceive_bytes(pndInitiator, abtCapdu, szCapduLen, abtRapdu, sizeof(abtRapdu), -1)) < 0) {
         ret = false;
       } else {
-        szCapduLen = (size_t) res;
+        szRapduLen = (size_t) res;
         ret = true;
       }
     } else {

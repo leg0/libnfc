@@ -57,7 +57,7 @@ extern  "C" {
     void *data;
   };
 
-  NFC_EXPORT int    nfc_emulate_target(nfc_device *pnd, struct nfc_emulator *emulator);
+  NFC_EXPORT int    nfc_emulate_target(nfc_device *pnd, struct nfc_emulator *emulator, const int timeout);
 
   /**
    * @brief Same as nfc_emulate_target, but with timeout

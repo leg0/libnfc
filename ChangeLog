@@ -1,3 +1,24 @@
+Jan TBD, 2013 - 1.7.0-rc3 (release candidate)
+--------------------------------------------
+
+Changes:
+ - nfc_emulate_target() now takes timeout parameter
+
+Jan 20, 2013 - 1.7.0-rc2 (release candidate)
+--------------------------------------------
+
+Fixes:
+ - Fix API version in debian files
+ - Fix wrong condition to display a warning when user disables autoscan
+ - Fix unit tests
+ - Fix ISO14443B' ATS
+
+Improvements:
+ - Allow device.optional=true to tolerate missing device
+
+Changes:
+ - pn532_uart driver is now enabled by default
+
 Dec 09, 2012 - 1.7.0-rc1 (release candidate)
 --------------------------------------------
 
