@@ -41,7 +41,7 @@
 int
 nfc_emulate_target(nfc_device *pnd, struct nfc_emulator *emulator, const int timeout)
 {
-    return nfc_emulate_target_timeout(pnd, emulator, 0);
+    return nfc_emulate_target_timeout(pnd, emulator, timeout);
 }
 
 int
