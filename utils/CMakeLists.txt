@@ -11,16 +11,37 @@ SET(UTILS-SOURCES
 ADD_LIBRARY(nfcutils STATIC 
   nfc-utils.c
 )
+TARGET_LINK_LIBRARIES(nfcutils nfc)
 
 # Examples
 FOREACH(source ${UTILS-SOURCES})
+  SET (TARGETS ${source}.c)
+
+  IF(WIN32)
+    SET(RC_COMMENT "${PACKAGE_NAME} utility")
+    SET(RC_INTERNAL_NAME ${source})
+    SET(RC_ORIGINAL_NAME ${source}.exe)
+    SET(RC_FILE_TYPE VFT_APP)
+    CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/../windows/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/../windows/${source}.rc @ONLY)
+    LIST(APPEND TARGETS ${CMAKE_CURRENT_BINARY_DIR}/../windows/${source}.rc)
+  ENDIF(WIN32)
+
   IF((${source} MATCHES "nfc-mfultralight") OR (${source} MATCHES "nfc-mfclassic"))
-    ADD_EXECUTABLE(${source} ${source}.c mifare)
-  ELSE()
-    ADD_EXECUTABLE(${source} ${source}.c)
+    LIST(APPEND TARGETS mifare)
   ENDIF((${source} MATCHES "nfc-mfultralight") OR (${source} MATCHES "nfc-mfclassic"))
+
+  IF(WIN32)
+    IF(${source} MATCHES "nfc-scan-device")
+      LIST(APPEND TARGETS ../contrib/win32/stdlib)
+      INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32)
+    ENDIF(${source} MATCHES "nfc-scan-device")
+  ENDIF(WIN32)
+
+  ADD_EXECUTABLE(${source} ${TARGETS})
+
   TARGET_LINK_LIBRARIES(${source} nfc)
   TARGET_LINK_LIBRARIES(${source} nfcutils)
+
   INSTALL(TARGETS ${source} RUNTIME DESTINATION bin COMPONENT utils)
 ENDFOREACH(source)
 

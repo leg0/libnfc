@@ -1,8 +1,50 @@
-Jan TBD, 2013 - 1.7.0-rc3 (release candidate)
+next...
+-------
+
+Improvements:
+ - New nfc_register_driver() function allowing to hook custom drivers
+
+Special thanks to:
+ - Ahti Legonkov (new nfc_register_driver())
+
+Feb 04, 2013 - 1.7.0-rc4 (release candidate)
 --------------------------------------------
+
+Fixes:
+ - Fix tag selection for nfc-mfclassic, nfc-mfultralight, nfc-read-forum-tag3
+   and nfc-relay-picc
+ - Fix crash in nfc-relay-picc -i/-t if fd3 or fd4 is missing
+
+Improvements:
+ - Windows support build with CMake
+
+Changes:
+ - Configuration directory (ie. libnfc.conf) can now be set a compile-time
+ - Log can be enabled/disabled using CMake
+
+Special thanks to:
+ - Alex Lian (Windows support improvements)
+ - Nobuhiro Iwamatsu (Debian package improvements)
+
+Jan 31, 2013 - 1.7.0-rc3 (release candidate)
+--------------------------------------------
+
+Fixes:
+ - Fix pn53x_usb bulk write timeout
+ - Fix BCC in nfc-emulate-uid example
+ - Fix nfc-relay-picc example
+ - Fix a miss returned value within some internal functions (user program could
+   be affected)
+ - Fix nfc-scan-device -i option
+ - Remove wrong exit() calls in library
+ - Fix issue in driver acr122_usb affecting Touchatag
+ - Reenable some idle in all drivers, add selectively PowerDown when possible
 
 Changes:
  - nfc_emulate_target() now takes timeout parameter
+
+Special thanks to:
+ - Alex Lian (Windows support refresh)
 
 Jan 20, 2013 - 1.7.0-rc2 (release candidate)
 --------------------------------------------

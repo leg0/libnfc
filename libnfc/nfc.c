@@ -83,33 +83,88 @@
 #include "target-subr.h"
 #include "drivers.h"
 
+#if defined (DRIVER_ACR122_PCSC_ENABLED)
+#  include "drivers/acr122_pcsc.h"
+#endif /* DRIVER_ACR122_PCSC_ENABLED */
+
+#if defined (DRIVER_ACR122_USB_ENABLED)
+#  include "drivers/acr122_usb.h"
+#endif /* DRIVER_ACR122_USB_ENABLED */
+
+#if defined (DRIVER_ACR122S_ENABLED)
+#  include "drivers/acr122s.h"
+#endif /* DRIVER_ACR122S_ENABLED */
+
+#if defined (DRIVER_PN53X_USB_ENABLED)
+#  include "drivers/pn53x_usb.h"
+#endif /* DRIVER_PN53X_USB_ENABLED */
+
+#if defined (DRIVER_ARYGON_ENABLED)
+#  include "drivers/arygon.h"
+#endif /* DRIVER_ARYGON_ENABLED */
+
+#if defined (DRIVER_PN532_UART_ENABLED)
+#  include "drivers/pn532_uart.h"
+#endif /* DRIVER_PN532_UART_ENABLED */
+
+
 #define LOG_CATEGORY "libnfc.general"
 #define LOG_GROUP    NFC_LOG_GROUP_GENERAL
 
-const struct nfc_driver *nfc_drivers[] = {
-#  if defined (DRIVER_PN53X_USB_ENABLED)
-  &pn53x_usb_driver,
-#  endif /* DRIVER_PN53X_USB_ENABLED */
-#  if defined (DRIVER_ACR122_PCSC_ENABLED)
-  &acr122_pcsc_driver,
-#  endif /* DRIVER_ACR122_PCSC_ENABLED */
-#  if defined (DRIVER_ACR122_USB_ENABLED)
-  &acr122_usb_driver,
-#  endif /* DRIVER_ACR122_USB_ENABLED */
-#  if defined (DRIVER_ACR122S_ENABLED)
-  &acr122s_driver,
-#  endif /* DRIVER_ACR122S_ENABLED */
-#  if defined (DRIVER_PN532_UART_ENABLED)
-  &pn532_uart_driver,
-#  endif /* DRIVER_PN532_UART_ENABLED */
-#  if defined (DRIVER_ARYGON_ENABLED)
-  &arygon_driver,
-#  endif /* DRIVER_ARYGON_ENABLED */
-#  if defined(DRIVER_PN53X_AVR_SPI_ENABLED)
-  &pn53x_avr_spi_driver,
-#  endif
-  NULL
+struct nfc_driver_list
+{
+    const struct nfc_driver_list *next;
+    const struct nfc_driver *driver;
 };
+
+const struct nfc_driver_list* nfc_drivers = NULL;
+
+static void
+nfc_drivers_init()
+{
+#if defined (DRIVER_PN53X_USB_ENABLED)
+  nfc_register_driver(&pn53x_usb_driver);
+#endif /* DRIVER_PN53X_USB_ENABLED */
+#if defined (DRIVER_ACR122_PCSC_ENABLED)
+  nfc_register_driver(&acr122_pcsc_driver);
+#endif /* DRIVER_ACR122_PCSC_ENABLED */
+#if defined (DRIVER_ACR122_USB_ENABLED)
+  nfc_register_driver(&acr122_usb_driver);
+#endif /* DRIVER_ACR122_USB_ENABLED */
+#if defined (DRIVER_ACR122S_ENABLED)
+  nfc_register_driver(&acr122s_driver);
+#endif /* DRIVER_ACR122S_ENABLED */
+#if defined (DRIVER_PN532_UART_ENABLED)
+  nfc_register_driver(&pn532_uart_driver);
+#endif /* DRIVER_PN532_UART_ENABLED */
+#if defined (DRIVER_ARYGON_ENABLED)
+  nfc_register_driver(&arygon_driver);
+#endif /* DRIVER_ARYGON_ENABLED */
+}
+
+/** @ingroup lib
+ * @brief Register an NFC device driver with libnfc.
+ * This function registers a driver with libnfc, the caller is responsible of managing the lifetime of the
+ * driver and make sure that any resources associated with the driver are available after registration.
+ * @param pnd Pointer to an NFC device driver to be registered.
+ * @retval NFC_SUCCESS If the driver registration succeeds.
+ */
+int
+nfc_register_driver(const struct nfc_driver *ndr)
+{
+  if (!ndr)
+    return NFC_EINVARG;
+
+  struct nfc_driver_list *pndl = (struct nfc_driver_list*)malloc(sizeof(struct nfc_driver_list));
+  if (!pndl)
+    return NFC_ESOFT;
+
+  pndl->driver = ndr;
+  pndl->next = nfc_drivers;
+  nfc_drivers = pndl;
+
+  return NFC_SUCCESS;
+}
 
 /** @ingroup lib
  * @brief Initialize libnfc.
@@ -120,6 +175,9 @@ void
 nfc_init(nfc_context **context)
 {
   *context = nfc_context_new();
+
+  if (!nfc_drivers)
+    nfc_drivers_init();
 }
 
 /** @ingroup lib
@@ -165,14 +223,15 @@ nfc_open(nfc_context *context, const nfc_connstring connstring)
   }
 
   // Search through the device list for an available device
-  const struct nfc_driver *ndr;
-  const struct nfc_driver **pndr = nfc_drivers;
-  while ((ndr = *pndr)) {
+  const struct nfc_driver_list *pndl = nfc_drivers;
+  while (pndl) {
+    const struct nfc_driver *ndr = pndl->driver;
+
     // Specific device is requested: using device description
     if (0 != strncmp(ndr->name, ncs, strlen(ndr->name))) {
       // Check if connstring driver is usb -> accept any driver *_usb
       if ((0 != strncmp("usb", ncs, strlen("usb"))) || 0 != strncmp("_usb", ndr->name + (strlen(ndr->name) - 4), 4)) {
-        pndr++;
+        pndl = pndl->next;
         continue;
       }
     }
@@ -182,7 +241,7 @@ nfc_open(nfc_context *context, const nfc_connstring connstring)
     if (pnd == NULL) {
       if (0 == strncmp("usb", ncs, strlen("usb"))) {
         // We've to test the other usb drivers before giving up
-        pndr++;
+        pndl = pndl->next;
         continue;
       }
       log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Unable to open \"%s\".", ncs);
@@ -214,11 +273,8 @@ void
 nfc_close(nfc_device *pnd)
 {
   if (pnd) {
-    // Go in idle mode
-    nfc_idle(pnd);
     // Close, clean up and release the device
     pnd->driver->close(pnd);
-
   }
 }
 
@@ -234,8 +290,6 @@ size_t
 nfc_list_devices(nfc_context *context, nfc_connstring connstrings[], const size_t connstrings_len)
 {
   size_t device_found = 0;
-  const struct nfc_driver *ndr;
-  const struct nfc_driver **pndr = nfc_drivers;
 
   // Load manually configured devices (from config file and env variables)
   // TODO From env var...
@@ -280,7 +334,9 @@ nfc_list_devices(nfc_context *context, nfc_connstring connstrings[], const size_
 
   // Device auto-detection
   if (context->allow_autoscan) {
-    while ((ndr = *pndr)) {
+    const struct nfc_driver_list *pndl = nfc_drivers;
+    while (pndl) {
+      const struct nfc_driver *ndr = pndl->driver;
       size_t _device_found = 0;
       if ((ndr->scan_type == NOT_INTRUSIVE) || ((context->allow_intrusive_scan) && (ndr->scan_type == INTRUSIVE))) {
         _device_found = ndr->scan(context, connstrings + (device_found), connstrings_len - (device_found));
@@ -291,7 +347,7 @@ nfc_list_devices(nfc_context *context, nfc_connstring connstrings[], const size_
             break;
         }
       } // scan_type is INTRUSIVE but not allowed or NOT_AVAILABLE
-      pndr++;
+      pndl = pndl->next;
     }
   } else if (context->user_defined_device_count == 0) {
     log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_INFO, "Warning: %s" , "user must specify device(s) manually when autoscan is disabled");
@@ -1128,7 +1184,6 @@ nfc_device_get_information_about(nfc_device *pnd, char **buf)
   HAL(device_get_information_about, pnd, buf);
 }
 
-#if !defined(__AVR__)
 /** @ingroup string-converter
  * @brief Convert \a nfc_baud_rate value to string
  * @return Returns nfc baud rate
@@ -1212,5 +1267,3 @@ str_nfc_target(char **buf, const nfc_target nt, bool verbose)
   sprint_nfc_target(*buf, nt, verbose);
   return strlen(*buf);
 }
-
-#endif

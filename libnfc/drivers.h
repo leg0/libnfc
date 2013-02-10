@@ -29,36 +29,10 @@
 
 #  include <nfc/nfc-types.h>
 
-#  if defined (DRIVER_ACR122_PCSC_ENABLED)
-#    include "drivers/acr122_pcsc.h"
-#  endif /* DRIVER_ACR122_PCSC_ENABLED */
-
-#  if defined (DRIVER_ACR122_USB_ENABLED)
-#    include "drivers/acr122_usb.h"
-#  endif /* DRIVER_ACR122_USB_ENABLED */
-
-#  if defined (DRIVER_ACR122S_ENABLED)
-#    include "drivers/acr122s.h"
-#  endif /* DRIVER_ACR122S_ENABLED */
-
-#  if defined (DRIVER_PN53X_USB_ENABLED)
-#    include "drivers/pn53x_usb.h"
-#  endif /* DRIVER_PN53X_USB_ENABLED */
-
-#  if defined (DRIVER_ARYGON_ENABLED)
-#    include "drivers/arygon.h"
-#  endif /* DRIVER_ARYGON_ENABLED */
-
-#  if defined (DRIVER_PN532_UART_ENABLED)
-#    include "drivers/pn532_uart.h"
-#  endif /* DRIVER_PN532_UART_ENABLED */
-
+extern const struct nfc_driver_list* nfc_drivers;
 #  if defined (DRIVER_PN53X_AVR_SPI_ENABLED)
 #    include "drivers/pn53x_avr_spi.h"
 #  endif /* DRIVER_PN53X_AVR_SPI_ENABLED */
 
-#  define DRIVERS_MAX_DEVICES         16
-
-extern const struct nfc_driver *nfc_drivers[];
 
 #endif // __NFC_DRIVERS_H__

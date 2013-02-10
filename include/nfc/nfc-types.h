@@ -47,6 +47,11 @@ typedef struct nfc_device nfc_device;
 #endif
 
 /**
+ * NFC device driver
+ */
+typedef struct nfc_driver nfc_driver;
+
+/**
  * Connection string
  */
 typedef char nfc_connstring[LIBNFC_MAX_CONNSTRING_LENGTH];

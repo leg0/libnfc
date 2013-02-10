@@ -1,16 +1,17 @@
 # General init
 
 # /!\ Don't forget to update 'CMakeLists.txt' too /!\
-AC_INIT([libnfc],[1.7.0-rc2],[info@libnfc.org])
+AC_INIT([libnfc],[1.7.0-rc4],[info@libnfc.org])
 
 AC_CONFIG_MACRO_DIR([m4])
 
 AC_CONFIG_HEADER(config.h)
 
 # GIT revison
-define([git_revision], esyscmd([sh -c "git describe"]))
-GIT_REVISION=git_revision
-AC_DEFINE_UNQUOTED([GIT_REVISION], ["$GIT_REVISION"], [GIT revision])
+GIT_REVISION=`which git > /dev/null && git describe`
+if test x"$GIT_REVISION" != x""; then
+    AC_DEFINE_UNQUOTED([GIT_REVISION], ["$GIT_REVISION"], [GIT revision])
+fi
 
 AM_INIT_AUTOMAKE
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])

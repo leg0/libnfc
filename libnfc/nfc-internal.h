@@ -158,6 +158,7 @@ struct nfc_driver {
 
   int (*abort_command)(struct nfc_device *pnd);
   int (*idle)(struct nfc_device *pnd);
+  int (*powerdown)(struct nfc_device *pnd);
 };
 
 #if !defined(DEVICE_NAME_LENGTH)
