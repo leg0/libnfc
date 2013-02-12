@@ -17,6 +17,7 @@
 
 #include "conf.h"
 
+#if NFC_USE_CONF
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif // HAVE_CONFIG_H
@@ -189,3 +190,11 @@ conf_load(nfc_context *context)
   conf_devices_load(LIBNFC_DEVICECONFDIR, context);
 }
 
+#else // NFC_USE_CONF
+
+void
+conf_load(nfc_context *context)
+{
+}
+
+#endif
