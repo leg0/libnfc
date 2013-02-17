@@ -47,10 +47,14 @@ typedef struct nfc_device nfc_device;
  */
 typedef struct nfc_driver nfc_driver;
 
+#ifndef NFC_MAX_CONNSTRING_LENGTH
+#define NFC_MAX_CONNSTRING_LENGTH 1024
+#endif
+
 /**
  * Connection string
  */
-typedef char nfc_connstring[1024];
+typedef char nfc_connstring[NFC_MAX_CONNSTRING_LENGTH];
 
 /**
  * Properties
