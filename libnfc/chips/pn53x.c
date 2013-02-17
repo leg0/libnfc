@@ -1003,7 +1003,7 @@ pn53x_initiator_init(struct nfc_device *pnd)
   pn53x_reset_settings(pnd);
   int res;
   if (CHIP_DATA(pnd)->sam_mode != PSM_NORMAL) {
-    if ((res = pn532_SAMConfiguration(pnd, PSM_NORMAL, -1)) < 0) {
+    if ((res = pn532_SAMConfiguration(pnd, PSM_NORMAL, 20, SAM_IRQ_YES, -1)) < 0) {
       return res;
     }
   }
@@ -2229,9 +2229,9 @@ pn53x_SetParameters(struct nfc_device *pnd, const uint8_t ui8Value)
 }
 
 int
-pn532_SAMConfiguration(struct nfc_device *pnd, const pn532_sam_mode sam_mode, int timeout)
+pn532_SAMConfiguration(struct nfc_device *pnd, const pn532_sam_mode sam_mode, uint8_t sam_timeout_50ms, pn532_sam_irq sam_irq, int timeout)
 {
-  uint8_t abtCmd[] = { SAMConfiguration, sam_mode, 0x00, 0x00 };
+  uint8_t abtCmd[] = { SAMConfiguration, sam_mode, sam_timeout_50ms, sam_irq };
   size_t szCmd = sizeof(abtCmd);
 
   if (CHIP_DATA(pnd)->type != PN532) {

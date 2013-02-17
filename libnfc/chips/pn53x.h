@@ -146,6 +146,15 @@ typedef enum {
 } pn532_sam_mode;
 
 /**
+ * @enum pn532_sam_irq
+ * @brief PN532 SAM interrupt enable enumeration
+ */
+typedef enum pn532_sam_irq {
+  SAM_IRQ_NO = 0x00,
+  SAM_IRQ_YES = 0x01,
+} pn532_sam_irq;
+
+/**
  * @internal
  * @struct pn53x_io
  * @brief PN53x I/O structure
@@ -351,7 +360,11 @@ const char *pn53x_strerror(const struct nfc_device *pnd);
 
 // C wrappers for PN53x commands
 int    pn53x_SetParameters(struct nfc_device *pnd, const uint8_t ui8Value);
-int    pn532_SAMConfiguration(struct nfc_device *pnd, const pn532_sam_mode mode, int timeout);
+int    pn532_SAMConfiguration(struct nfc_device *pnd,
+                              const pn532_sam_mode mode,
+                              uint8_t sam_timeout_50ms,
+                              pn532_sam_irq sam_irq,
+                              int timeout);
 int    pn53x_PowerDown(struct nfc_device *pnd);
 int    pn53x_InListPassiveTarget(struct nfc_device *pnd, const pn53x_modulation pmInitModulation,
                                  const uint8_t szMaxTargets, const uint8_t *pbtInitiatorData,
