@@ -1019,7 +1019,7 @@ pn53x_initiator_init(struct nfc_device *pnd)
 int
 pn532_initiator_init_secure_element(struct nfc_device *pnd)
 {
-  return pn532_SAMConfiguration(pnd, PSM_WIRED_CARD, -1);
+  return pn532_SAMConfiguration(pnd, PSM_WIRED_CARD, 0, SAM_IRQ_NO, -1);
 }
 
 static int
